@@ -433,29 +433,7 @@ function nxt(){return nid++;}
 let sueldos=[{id:1,nombre:'Sueldo trabajo dependiente',emp:'Empleador',monto:1650000,fecha:'2026-05-25',percibido:false}];
 let honorarios=[];
 let otrosIng=[];
-let obligaciones=[
-  {id:11,nombre:'Dividendo casa',cat:'Dividendo / hipoteca',monto:261000,fecha:'2026-05-05',pagado:true,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:12,nombre:'Arriendo casa (pago)',cat:'Dividendo / hipoteca',monto:400000,fecha:'2026-05-05',pagado:true,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:13,nombre:'Dividendo Depto 320',cat:'Dividendo / hipoteca',monto:460000,fecha:'2026-05-05',pagado:true,rec:'Mensual',ambito:'depto320',cuotas:0},
-  {id:14,nombre:'Dividendo Vista Ñielol',cat:'Dividendo / hipoteca',monto:450000,fecha:'2026-05-05',pagado:false,rec:'Mensual',ambito:'nielol',cuotas:0},
-  {id:15,nombre:'TC Santander',cat:'Tarjeta de crédito',monto:118113,fecha:'2026-05-20',pagado:false,rec:'Mensual',ambito:'personal',cuotas:33},
-  {id:16,nombre:'TC ITAU',cat:'Tarjeta de crédito',monto:117647,fecha:'2026-05-20',pagado:false,rec:'Mensual',ambito:'personal',cuotas:33},
-  {id:17,nombre:'TC Scotiabank',cat:'Tarjeta de crédito',monto:138889,fecha:'2026-05-20',pagado:false,rec:'Mensual',ambito:'personal',cuotas:34},
-  {id:18,nombre:'Servicios básicos casa',cat:'Cuenta básica',monto:75000,fecha:'2026-05-28',pagado:false,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:19,nombre:'Alimentación',cat:'Otro',monto:200000,fecha:'2026-05-31',pagado:false,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:20,nombre:'Combustible',cat:'Otro',monto:100000,fecha:'2026-05-31',pagado:true,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:21,nombre:'Colegio Isabella',cat:'Educación',monto:65000,fecha:'2026-05-05',pagado:true,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:22,nombre:'Gimnasia Isabella',cat:'Educación',monto:31000,fecha:'2026-05-05',pagado:true,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:23,nombre:'Centro infantil',cat:'Educación',monto:171000,fecha:'2026-05-05',pagado:false,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:24,nombre:'Asesora del hogar',cat:'Otro',monto:100000,fecha:'2026-05-15',pagado:false,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:25,nombre:'Gimnasio',cat:'Otro',monto:35000,fecha:'2026-05-10',pagado:true,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:26,nombre:'Suscripciones',cat:'Otro',monto:30000,fecha:'2026-05-15',pagado:false,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:27,nombre:'Auto (cuota Scotiabank)',cat:'Otro',monto:271205,fecha:'2026-05-20',pagado:false,rec:'Mensual',ambito:'personal',cuotas:13},
-  {id:28,nombre:'Buffer imprevistos',cat:'Otro',monto:100000,fecha:'2026-05-31',pagado:false,rec:'Mensual',ambito:'personal',cuotas:0},
-  {id:29,nombre:'GGCC Depto 320',cat:'Gasto depto',monto:58000,fecha:'2026-05-10',pagado:false,rec:'Mensual',ambito:'depto320',cuotas:0},
-  {id:30,nombre:'GGCC Vista Ñielol',cat:'Gasto depto',monto:60000,fecha:'2026-05-10',pagado:false,rec:'Mensual',ambito:'nielol',cuotas:0},
-  {id:31,nombre:'Estacionamiento Ñielol',cat:'Gasto depto',monto:50000,fecha:'2026-05-10',pagado:true,rec:'Mensual',ambito:'nielol',cuotas:0},
-];
+let obligaciones=[];
 let rvD1=[
   {id:40,hues:'Carlos M.',entrada:'01/05',salida:'05/05',noches:4,plat:'Airbnb',est:'Completada',monto:560000},
   {id:41,hues:'Tom B.',entrada:'12/05',salida:'16/05',noches:4,plat:'Airbnb',est:'Completada',monto:540000},
