@@ -675,10 +675,10 @@ function renderObligaciones(){
   document.getElementById('ob-pc').textContent=pend.length+' — '+cl(tPend);
   document.getElementById('ob-dc').textContent=pag.length+' — '+cl(tPag2);
   document.getElementById('ob-mets').innerHTML=`
-    <div class="met"><div class="ml">Pendientes (total)</div><div class="mv neg">${cl(tP)}</div><div class="ms">${obligaciones.filter(o=>!o.pagado).length} ítems</div></div>
-    <div class="met"><div class="ml">Pagados</div><div class="mv pos">${cl(tD)}</div></div>
-    <div class="met"><div class="ml">Total mes</div><div class="mv">${cl(tP+tD)}</div></div>
-    <div class="met"><div class="ml">% pagado</div><div class="mv">${Math.round(tD/(tP+tD)*100)||0}%</div></div>`;
+    <div class="met"><div class="ml">Pendientes — ${obTab==='todas'?'todos':obTab==='personal'?'Personal':obTab==='depto320'?'Depto 320':'Vista Ñielol'}</div><div class="mv neg">${cl(tPend)}</div><div class="ms">${pend.length} ítems</div></div>
+    <div class="met"><div class="ml">Pagados</div><div class="mv pos">${cl(tPag2)}</div><div class="ms">${pag.length} ítems</div></div>
+    <div class="met"><div class="ml">Total filtro</div><div class="mv">${cl(tPend+tPag2)}</div></div>
+    <div class="met"><div class="ml">% pagado</div><div class="mv">${Math.round(tPag2/(tPend+tPag2)*100)||0}%</div></div>`;
   const now=new Date();
   const row=arr=>arr.map(o=>{
     const v=new Date((o.fecha||'').replace(/\//g,'-')+'T00:00:00');
