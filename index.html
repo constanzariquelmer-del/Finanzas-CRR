@@ -670,8 +670,10 @@ function renderObligaciones(){
   const pag=fil.filter(o=>o.pagado);
   const tP=obligaciones.filter(o=>!o.pagado).reduce((a,o)=>a+o.monto,0);
   const tD=obligaciones.filter(o=>o.pagado).reduce((a,o)=>a+o.monto,0);
-  document.getElementById('ob-pc').textContent=pend.length;
-  document.getElementById('ob-dc').textContent=pag.length;
+ const tPend=pend.reduce((a,o)=>a+o.monto,0);
+  const tPag2=pag.reduce((a,o)=>a+o.monto,0);
+  document.getElementById('ob-pc').textContent=pend.length+' — '+cl(tPend);
+  document.getElementById('ob-dc').textContent=pag.length+' — '+cl(tPag2);
   document.getElementById('ob-mets').innerHTML=`
     <div class="met"><div class="ml">Pendientes (total)</div><div class="mv neg">${cl(tP)}</div><div class="ms">${obligaciones.filter(o=>!o.pagado).length} ítems</div></div>
     <div class="met"><div class="ml">Pagados</div><div class="mv pos">${cl(tD)}</div></div>
