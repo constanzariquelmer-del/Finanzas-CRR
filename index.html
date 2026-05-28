@@ -707,6 +707,8 @@ function editarOb(id){
   for(let i=0;i<cs.length;i++)if(cs[i].text===o.cat)cs[i].selected=true;
   const rs=document.getElementById('oe-rec').options;
   for(let i=0;i<rs.length;i++)if(rs[i].text===o.rec)rs[i].selected=true;
+ const as=document.getElementById('oe-amb').options;
+  for(let i=0;i<as.length;i++)if(as[i].value===o.ambito)as[i].selected=true;
   abrirM('mObEdit');
 }
 function gObEdit(){
@@ -717,7 +719,8 @@ function gObEdit(){
   o.monto=parseInt(document.getElementById('oe-monto').value)||o.monto;
   o.fecha=document.getElementById('oe-fecha').value||o.fecha;
   o.rec=document.getElementById('oe-rec').value;
-  o.cuotas=parseInt(document.getElementById('oe-cuotas').value)||0;
+ o.cuotas=parseInt(document.getElementById('oe-cuotas').value)||0;
+  o.ambito=document.getElementById('oe-amb').value;
   dbSet('obligaciones',o);renderObligaciones();renderResumen();cerrarM('mObEdit');
 }
 function gOb(){
