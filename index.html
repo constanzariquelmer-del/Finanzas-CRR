@@ -690,7 +690,7 @@ function renderObligaciones(){
       <td><span class="bdg ba" style="font-size:9px">${o.rec||''}</span></td>
       <td>${ambBdg(o.ambito)}</td>
       <td style="text-align:center;display:flex;gap:3px;justify-content:center;flex-wrap:wrap">
-        ${o.pagado?'<span class="bdg bg">✓ Pagado</span>':'<button class="cbtn" onclick="marcarPag('+o.id+')">✓ Pagar</button>'}
+        ${o.pagado?'<button class="cbtn" onclick="revertirPag('+o.id+')" style="background:var(--green-bg);color:var(--green-tx);border-color:transparent">✓ Pagado</button>':'<button class="cbtn" onclick="marcarPag('+o.id+')">✓ Pagar</button>'}
         <button class="ibtn" onclick="editarOb(${o.id})">✏</button>
       </td></tr>`;
   }).join('');
