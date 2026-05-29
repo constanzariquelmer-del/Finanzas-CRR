@@ -1089,9 +1089,7 @@ setTimeout(async()=>{
 </script>
 
 <!-- CDNs al final para no bloquear render -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" 
-  onload="initChart('resumen')" 
-  onerror="console.warn('Chart.js no cargó')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
   onload="setTimeout(()=>cargarTodo(),200)"
   onerror="console.warn('Supabase no cargó')"></script>
