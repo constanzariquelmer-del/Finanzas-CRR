@@ -698,6 +698,7 @@ function renderObligaciones(){
   document.getElementById('t-ob-d').innerHTML=row(pag);
 }
 function marcarPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=true;dbSet('obligaciones',o);renderObligaciones();renderResumen();toast('✓ Marcado como pagado');}
+  function revertirPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=false;dbSet('obligaciones',{...o});renderObligaciones();renderResumen();toast('↩ Revertido a pendiente');}
 function editarOb(id){
   const o=obligaciones.find(x=>x.id===id);
   document.getElementById('oe-id').value=id;
