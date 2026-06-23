@@ -529,7 +529,7 @@ function navMes(d){
   if(fut){ban.style.display='block';ban.textContent='Período futuro — mostrando proyección basada en datos actuales';}
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
-  renderObligaciones();renderResumen();
+  renderIngresos();renderObligaciones();renderResumen();
 }
 
 function estBdg(e){
@@ -552,22 +552,25 @@ function ambBdg(a){
 
 // ── INGRESOS ──────────────────────────────────────────────
 function renderIngresos(){
-  const tSu=sueldos.reduce((a,x)=>a+x.monto,0);
-  const tHon=honorarios.reduce((a,x)=>a+x.monto,0);
-  const tOt=otrosIng.reduce((a,x)=>a+x.monto,0);
-  const perc=sueldos.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
-    +honorarios.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
-    +otrosIng.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
+  const suMes=sueldos.filter(ingEnMes);
+  const honMes=honorarios.filter(ingEnMes);
+  const otMes=otrosIng.filter(ingEnMes);
+  const tSu=suMes.reduce((a,x)=>a+x.monto,0);
+  const tHon=honMes.reduce((a,x)=>a+x.monto,0);
+  const tOt=otMes.reduce((a,x)=>a+x.monto,0);
+  const perc=suMes.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
+    +honMes.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
+    +otMes.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
   const total=tSu+tHon+tOt;
-  document.getElementById('c-su').textContent=sueldos.filter(x=>!x.percibido).length+' pend.';
-  document.getElementById('c-hon').textContent=honorarios.filter(x=>!x.percibido).length+' pend.';
-  document.getElementById('c-ot').textContent=otrosIng.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-su').textContent=suMes.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-hon').textContent=honMes.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-ot').textContent=otMes.filter(x=>!x.percibido).length+' pend.';
   document.getElementById('ing-mets').innerHTML=`
     <div class="met"><div class="ml">Total esperado</div><div class="mv">${cl(total)}</div></div>
     <div class="met"><div class="ml">Ya percibido</div><div class="mv pos">${cl(perc)}</div></div>
     <div class="met"><div class="ml">Por percibir</div><div class="mv amb">${cl(total-perc)}</div></div>
-    <div class="met"><div class="ml">Honorarios</div><div class="mv">${cl(tHon)}</div><div class="ms">${honorarios.length} clientes</div></div>`;
-  document.getElementById('t-su').innerHTML=sueldos.map(s=>`<tr class="${s.percibido?'done':''}">
+    <div class="met"><div class="ml">Honorarios</div><div class="mv">${cl(tHon)}</div><div class="ms">${honMes.length} clientes</div></div>`;
+  document.getElementById('t-su').innerHTML=suMes.map(s=>`<tr class="${s.percibido?'done':''}">
     <td>${s.nombre||s.desc||''}<span style="color:var(--text3);font-size:10px"> ${s.emp||''}</span></td>
     <td>${s.fecha||''}</td>
     <td style="text-align:right;font-weight:600" class="${s.percibido?'pos':'amb'}">${cl(s.monto)}</td>
@@ -576,7 +579,7 @@ function renderIngresos(){
       <button class="ibtn" onclick="editarSu(${s.id})">✏</button>
       <button class="ibtn" onclick="eliminarSu(${s.id})">✕</button>
     </td></tr>`).join('');
-  document.getElementById('t-hon').innerHTML=honorarios.map(h=>`<tr class="${h.percibido?'done':''}">
+  document.getElementById('t-hon').innerHTML=honMes.map(h=>`<tr class="${h.percibido?'done':''}">
     <td><strong>${h.cliente}</strong></td>
     <td style="color:var(--text2);font-size:11px">${h.concepto}</td>
     <td>${h.fecha||''}</td>
@@ -587,7 +590,7 @@ function renderIngresos(){
       <button class="ibtn" onclick="editarHon(${h.id})">✏</button>
       <button class="ibtn" onclick="eliminarHon(${h.id})">✕</button>
     </td></tr>`).join('');
-  document.getElementById('t-ot').innerHTML=otrosIng.map(o=>`<tr class="${o.percibido?'done':''}">
+  document.getElementById('t-ot').innerHTML=otMes.map(o=>`<tr class="${o.percibido?'done':''}">
     <td>${o.nombre||o.desc||''}</td>
     <td><span class="bdg bb">${o.tipo}</span></td>
     <td>${o.fecha||''}</td>
@@ -695,6 +698,12 @@ function _setPago(id,val){
   const mk=mesKey();
   if(val)localStorage.setItem('pago_'+id+'_'+mk,'1');
   else localStorage.removeItem('pago_'+id+'_'+mk);
+}
+function ingEnMes(x){
+  if(!x.fecha)return true;
+  const parts=x.fecha.replace(/\//g,'-').split('-');
+  if(parts.length<2)return true;
+  return parseInt(parts[0])===mesActual.getFullYear()&&parseInt(parts[1])-1===mesActual.getMonth();
 }
 
 // ── OBLIGACIONES ──────────────────────────────────────────
@@ -1139,3 +1148,4 @@ setTimeout(async()=>{
 </div>
 </body>
 </html>
+
