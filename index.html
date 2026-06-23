@@ -287,6 +287,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="overlay" id="mSueldo"><div class="modal"><h3>Sueldo</h3>
   <div class="fr"><div><div class="fl">Descripción</div><input id="su-desc" placeholder="Sueldo mayo"></div><div><div class="fl">Monto ($)</div><input type="number" id="su-monto"></div></div>
   <div class="fr"><div><div class="fl">Empleador</div><input id="su-emp" placeholder="Empresa"></div><div><div class="fl">Fecha esperada</div><input type="date" id="su-fecha"></div></div>
+  <div class="fr1"><div class="fl">Recurrencia</div><select id="su-rec"><option value="mensual">Mensual (aparece cada mes)</option><option value="unica">Única vez</option></select></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mSueldo')">Cancelar</button><button class="btp" onclick="gSueldo()">Guardar</button></div>
 </div></div>
 
@@ -294,13 +295,14 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   <input type="hidden" id="se-id">
   <div class="fr"><div><div class="fl">Descripción</div><input id="se-desc"></div><div><div class="fl">Monto ($)</div><input type="number" id="se-monto"></div></div>
   <div class="fr"><div><div class="fl">Empleador</div><input id="se-emp"></div><div><div class="fl">Fecha</div><input type="date" id="se-fecha"></div></div>
+  <div class="fr1"><div class="fl">Recurrencia</div><select id="se-rec"><option value="mensual">Mensual (aparece cada mes)</option><option value="unica">Única vez</option></select></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mSueldoEdit')">Cancelar</button><button class="btp" onclick="gSueldoEdit()">Guardar</button></div>
 </div></div>
 
 <div class="overlay" id="mHon"><div class="modal"><h3>Honorario por cliente</h3>
   <div class="fr"><div><div class="fl">Cliente</div><input id="h-cli" placeholder="Nombre cliente"></div><div><div class="fl">Concepto</div><input id="h-con" placeholder="Asesoría contable"></div></div>
   <div class="fr"><div><div class="fl">Monto ($)</div><input type="number" id="h-monto"></div><div><div class="fl">Fecha esperada</div><input type="date" id="h-fecha"></div></div>
-  <div class="fr1"><div class="fl">N° Boleta (opcional)</div><input id="h-boleta" placeholder="Boleta 1234"></div>
+  <div class="fr"><div><div class="fl">N° Boleta (opcional)</div><input id="h-boleta" placeholder="Boleta 1234"></div><div><div class="fl">Recurrencia</div><select id="h-rec"><option value="unica">Única vez</option><option value="mensual">Mensual</option></select></div></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mHon')">Cancelar</button><button class="btp" onclick="gHon()">Guardar</button></div>
 </div></div>
 
@@ -308,13 +310,14 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   <input type="hidden" id="he-id">
   <div class="fr"><div><div class="fl">Cliente</div><input id="he-cli"></div><div><div class="fl">Concepto</div><input id="he-con"></div></div>
   <div class="fr"><div><div class="fl">Monto ($)</div><input type="number" id="he-monto"></div><div><div class="fl">Fecha</div><input type="date" id="he-fecha"></div></div>
-  <div class="fr1"><div class="fl">N° Boleta</div><input id="he-boleta"></div>
+  <div class="fr"><div><div class="fl">N° Boleta</div><input id="he-boleta"></div><div><div class="fl">Recurrencia</div><select id="he-rec"><option value="unica">Única vez</option><option value="mensual">Mensual</option></select></div></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mHonEdit')">Cancelar</button><button class="btp" onclick="gHonEdit()">Guardar</button></div>
 </div></div>
 
 <div class="overlay" id="mOtroIng"><div class="modal"><h3>Otro ingreso personal</h3>
   <div class="fr"><div><div class="fl">Descripción</div><input id="oi-desc" placeholder="Arriendo casa"></div><div><div class="fl">Tipo</div><select id="oi-tipo"><option>Arriendo casa</option><option>Pensión alimentos</option><option>Traspaso Airbnb</option><option>Variable / esporádico</option><option>Otro</option></select></div></div>
   <div class="fr"><div><div class="fl">Monto ($)</div><input type="number" id="oi-monto"></div><div><div class="fl">Fecha</div><input type="date" id="oi-fecha"></div></div>
+  <div class="fr1"><div class="fl">Recurrencia</div><select id="oi-rec"><option value="mensual">Mensual (aparece cada mes)</option><option value="unica">Única vez</option></select></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mOtroIng')">Cancelar</button><button class="btp" onclick="gOtroIng()">Guardar</button></div>
 </div></div>
 
@@ -558,50 +561,48 @@ function renderIngresos(){
   const tSu=suMes.reduce((a,x)=>a+x.monto,0);
   const tHon=honMes.reduce((a,x)=>a+x.monto,0);
   const tOt=otMes.reduce((a,x)=>a+x.monto,0);
-  const perc=suMes.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
-    +honMes.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
-    +otMes.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
+  const perc=suMes.filter(x=>ingPercibido(x)).reduce((a,x)=>a+x.monto,0)
+    +honMes.filter(x=>ingPercibido(x)).reduce((a,x)=>a+x.monto,0)
+    +otMes.filter(x=>ingPercibido(x)).reduce((a,x)=>a+x.monto,0);
   const total=tSu+tHon+tOt;
-  document.getElementById('c-su').textContent=suMes.filter(x=>!x.percibido).length+' pend.';
-  document.getElementById('c-hon').textContent=honMes.filter(x=>!x.percibido).length+' pend.';
-  document.getElementById('c-ot').textContent=otMes.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-su').textContent=suMes.filter(x=>!ingPercibido(x)).length+' pend.';
+  document.getElementById('c-hon').textContent=honMes.filter(x=>!ingPercibido(x)).length+' pend.';
+  document.getElementById('c-ot').textContent=otMes.filter(x=>!ingPercibido(x)).length+' pend.';
   document.getElementById('ing-mets').innerHTML=`
     <div class="met"><div class="ml">Total esperado</div><div class="mv">${cl(total)}</div></div>
     <div class="met"><div class="ml">Ya percibido</div><div class="mv pos">${cl(perc)}</div></div>
     <div class="met"><div class="ml">Por percibir</div><div class="mv amb">${cl(total-perc)}</div></div>
     <div class="met"><div class="ml">Honorarios</div><div class="mv">${cl(tHon)}</div><div class="ms">${honMes.length} clientes</div></div>`;
-  document.getElementById('t-su').innerHTML=suMes.map(s=>`<tr class="${s.percibido?'done':''}">
-    <td>${s.nombre||s.desc||''}<span style="color:var(--text3);font-size:10px"> ${s.emp||''}</span></td>
+  const recTag=x=>x.rec==='mensual'?'<span class="bdg bp" style="font-size:9px;margin-left:4px">↻</span>':'';
+  document.getElementById('t-su').innerHTML=suMes.map(s=>{const p=ingPercibido(s);return`<tr class="${p?'done':''}">
+    <td>${s.nombre||s.desc||''}${recTag(s)}<span style="color:var(--text3);font-size:10px"> ${s.emp||''}</span></td>
     <td>${s.fecha||''}</td>
-    <td style="text-align:right;font-weight:600" class="${s.percibido?'pos':'amb'}">${cl(s.monto)}</td>
+    <td style="text-align:right;font-weight:600" class="${p?'pos':'amb'}">${cl(s.monto)}</td>
     <td style="text-align:center;display:flex;gap:4px;justify-content:center">
-      ${s.percibido?'<span class="bdg bg">✓ Percibido</span>':'<button class="cbtn" onclick="marcarIng(\'su\','+s.id+')">✓ Percibido</button>'}
+      ${p?'<span class="bdg bg">✓ Percibido</span>':'<button class="cbtn" onclick="marcarIng(\'su\','+s.id+')">✓ Percibido</button>'}
       <button class="ibtn" onclick="editarSu(${s.id})">✏</button>
       <button class="ibtn" onclick="eliminarSu(${s.id})">✕</button>
-    </td></tr>`).join('');
-  document.getElementById('t-hon').innerHTML=honMes.map(h=>`<tr class="${h.percibido?'done':''}">
-    <td><strong>${h.cliente}</strong></td>
+    </td></tr>`;}).join('');
+  document.getElementById('t-hon').innerHTML=honMes.map(h=>{const p=ingPercibido(h);return`<tr class="${p?'done':''}">
+    <td><strong>${h.cliente}</strong>${recTag(h)}</td>
     <td style="color:var(--text2);font-size:11px">${h.concepto}</td>
     <td>${h.fecha||''}</td>
-    <td style="text-align:right;font-weight:600" class="${h.percibido?'pos':'amb'}">${cl(h.monto)}</td>
+    <td style="text-align:right;font-weight:600" class="${p?'pos':'amb'}">${cl(h.monto)}</td>
     <td>${h.boleta?'<span class="bdg bgr" style="font-size:9px">'+h.boleta+'</span>':''}</td>
     <td style="text-align:center;display:flex;gap:4px;justify-content:center">
-      ${h.percibido?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'hon\','+h.id+')">✓ Cobrado</button>'}
+      ${p?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'hon\','+h.id+')">✓ Cobrado</button>'}
       <button class="ibtn" onclick="editarHon(${h.id})">✏</button>
       <button class="ibtn" onclick="eliminarHon(${h.id})">✕</button>
-    </td></tr>`).join('');
-  document.getElementById('t-ot').innerHTML=otMes.map(o=>`<tr class="${o.percibido?'done':''}">
-    <td>${o.nombre||o.desc||''}</td>
+    </td></tr>`;}).join('');
+  document.getElementById('t-ot').innerHTML=otMes.map(o=>{const p=ingPercibido(o);return`<tr class="${p?'done':''}">
+    <td>${o.nombre||o.desc||''}${recTag(o)}</td>
     <td><span class="bdg bb">${o.tipo}</span></td>
     <td>${o.fecha||''}</td>
-    <td style="text-align:right;font-weight:600" class="${o.percibido?'pos':'amb'}">${cl(o.monto)}</td>
-    <td style="text-align:center">${o.percibido?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'ot\','+o.id+')">✓ Percibido</button>'}</td></tr>`).join('');
+    <td style="text-align:right;font-weight:600" class="${p?'pos':'amb'}">${cl(o.monto)}</td>
+    <td style="text-align:center">${p?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'ot\','+o.id+')">✓ Percibido</button>'}</td></tr>`;}).join('');
 }
 function marcarIng(tipo,id){
-  let it;
-  if(tipo==='su'){it=sueldos.find(x=>x.id===id);it.percibido=true;dbSet('sueldos',it);}
-  else if(tipo==='hon'){it=honorarios.find(x=>x.id===id);it.percibido=true;dbSet('honorarios',it);}
-  else{it=otrosIng.find(x=>x.id===id);it.percibido=true;dbSet('otros_ingresos',it);}
+  _setPercibido(tipo,id,true);
   renderIngresos();renderResumen();toast('✓ Marcado como percibido');
 }
 function gSueldo(){
@@ -610,7 +611,7 @@ function gSueldo(){
   const emp=document.getElementById('su-emp').value;
   const fecha=document.getElementById('su-fecha').value;
   if(!desc||!monto)return;
-  const it={id:nxt(),nombre:desc,emp,monto,fecha,percibido:false};
+  const it={id:nxt(),nombre:desc,emp,monto,fecha,percibido:false,rec:document.getElementById('su-rec').value};
   sueldos.push(it);dbSet('sueldos',it);
   renderIngresos();renderResumen();cerrarM('mSueldo');
   ['su-desc','su-monto','su-emp','su-fecha'].forEach(i=>document.getElementById(i).value='');
@@ -622,6 +623,8 @@ function editarSu(id){
   document.getElementById('se-monto').value=s.monto;
   document.getElementById('se-emp').value=s.emp||'';
   document.getElementById('se-fecha').value=s.fecha||'';
+  const rs=document.getElementById('se-rec').options;
+  for(let i=0;i<rs.length;i++)if(rs[i].value===(s.rec||'unica'))rs[i].selected=true;
   abrirM('mSueldoEdit');
 }
 function gSueldoEdit(){
@@ -631,6 +634,7 @@ function gSueldoEdit(){
   s.emp=document.getElementById('se-emp').value;
   s.monto=parseInt(document.getElementById('se-monto').value)||s.monto;
   s.fecha=document.getElementById('se-fecha').value||s.fecha;
+  s.rec=document.getElementById('se-rec').value;
   dbSet('sueldos',s);renderIngresos();renderResumen();cerrarM('mSueldoEdit');
 }
 function eliminarSu(id){if(confirm('¿Eliminar?')){sueldos=sueldos.filter(x=>x.id!==id);dbDel('sueldos',id);renderIngresos();renderResumen();}}
@@ -638,7 +642,7 @@ function gHon(){
   const cliente=document.getElementById('h-cli').value;
   const monto=parseInt(document.getElementById('h-monto').value)||0;
   if(!cliente||!monto)return;
-  const it={id:nxt(),cliente,concepto:document.getElementById('h-con').value,monto,fecha:document.getElementById('h-fecha').value,boleta:document.getElementById('h-boleta').value,percibido:false};
+  const it={id:nxt(),cliente,concepto:document.getElementById('h-con').value,monto,fecha:document.getElementById('h-fecha').value,boleta:document.getElementById('h-boleta').value,percibido:false,rec:document.getElementById('h-rec').value};
   honorarios.push(it);dbSet('honorarios',it);
   renderIngresos();renderResumen();cerrarM('mHon');
   ['h-cli','h-con','h-monto','h-fecha','h-boleta'].forEach(i=>document.getElementById(i).value='');
@@ -651,6 +655,8 @@ function editarHon(id){
   document.getElementById('he-monto').value=h.monto;
   document.getElementById('he-fecha').value=h.fecha||'';
   document.getElementById('he-boleta').value=h.boleta||'';
+  const rs=document.getElementById('he-rec').options;
+  for(let i=0;i<rs.length;i++)if(rs[i].value===(h.rec||'unica'))rs[i].selected=true;
   abrirM('mHonEdit');
 }
 function gHonEdit(){
@@ -661,6 +667,7 @@ function gHonEdit(){
   h.monto=parseInt(document.getElementById('he-monto').value)||h.monto;
   h.fecha=document.getElementById('he-fecha').value||h.fecha;
   h.boleta=document.getElementById('he-boleta').value;
+  h.rec=document.getElementById('he-rec').value;
   dbSet('honorarios',h);renderIngresos();renderResumen();cerrarM('mHonEdit');
 }
 function eliminarHon(id){if(confirm('¿Eliminar?')){honorarios=honorarios.filter(x=>x.id!==id);dbDel('honorarios',id);renderIngresos();renderResumen();}}
@@ -668,7 +675,7 @@ function gOtroIng(){
   const desc=document.getElementById('oi-desc').value;
   const monto=parseInt(document.getElementById('oi-monto').value)||0;
   if(!desc||!monto)return;
-  const it={id:nxt(),nombre:desc,tipo:document.getElementById('oi-tipo').value,monto,fecha:document.getElementById('oi-fecha').value,percibido:false};
+  const it={id:nxt(),nombre:desc,tipo:document.getElementById('oi-tipo').value,monto,fecha:document.getElementById('oi-fecha').value,percibido:false,rec:document.getElementById('oi-rec').value};
   otrosIng.push(it);dbSet('otros_ingresos',it);
   renderIngresos();renderResumen();cerrarM('mOtroIng');
   ['oi-desc','oi-monto','oi-fecha'].forEach(i=>document.getElementById(i).value='');
@@ -700,10 +707,28 @@ function _setPago(id,val){
   else localStorage.removeItem('pago_'+id+'_'+mk);
 }
 function ingEnMes(x){
-  if(!x.fecha)return true;
-  const parts=x.fecha.replace(/\//g,'-').split('-');
-  if(parts.length<2)return true;
-  return parseInt(parts[0])===mesActual.getFullYear()&&parseInt(parts[1])-1===mesActual.getMonth();
+  const f=(x.fecha||'').replace(/\//g,'-');
+  const parts=f.split('-');
+  if(parts.length<2)return x.rec==='mensual';
+  const yy=parseInt(parts[0]),mm=parseInt(parts[1])-1;
+  if(x.rec==='mensual')return mesActual>=new Date(yy,mm,1);
+  return yy===mesActual.getFullYear()&&mm===mesActual.getMonth();
+}
+function ingPercibido(x){
+  if(x.rec==='mensual')return!!localStorage.getItem('perc_'+x.id+'_'+mesKey());
+  return!!x.percibido;
+}
+function _setPercibido(tipo,id,val){
+  const arr=tipo==='su'?sueldos:tipo==='hon'?honorarios:otrosIng;
+  const x=arr.find(s=>s.id===id);
+  if(!x)return;
+  if(x.rec==='mensual'){
+    if(val)localStorage.setItem('perc_'+id+'_'+mesKey(),'1');
+    else localStorage.removeItem('perc_'+id+'_'+mesKey());
+  } else {
+    x.percibido=val;
+    dbSet(tipo==='su'?'sueldos':tipo==='hon'?'honorarios':'otros_ingresos',x);
+  }
 }
 
 // ── OBLIGACIONES ──────────────────────────────────────────
@@ -938,7 +963,7 @@ function gPres(){
 // ── RESUMEN ───────────────────────────────────────────────
 function renderResumen(){
   const tI=sueldos.reduce((a,x)=>a+x.monto,0)+honorarios.reduce((a,x)=>a+x.monto,0)+otrosIng.reduce((a,x)=>a+x.monto,0);
-  const tPerc=sueldos.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+honorarios.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+otrosIng.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
+  const tPerc=sueldos.filter(x=>ingEnMes(x)&&ingPercibido(x)).reduce((a,x)=>a+x.monto,0)+honorarios.filter(x=>ingEnMes(x)&&ingPercibido(x)).reduce((a,x)=>a+x.monto,0)+otrosIng.filter(x=>ingEnMes(x)&&ingPercibido(x)).reduce((a,x)=>a+x.monto,0);
   const obMes=obligaciones.filter(o=>o.ambito==='personal'&&obAplicaEnMes(o));
   const tO=obMes.reduce((a,o)=>a+o.monto,0);
   const tPag=obMes.filter(o=>obEsPagado(o)).reduce((a,o)=>a+o.monto,0);
@@ -1148,4 +1173,5 @@ setTimeout(async()=>{
 </div>
 </body>
 </html>
+
 
