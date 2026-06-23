@@ -191,7 +191,31 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     <div class="ow"><table><thead><tr><th style="width:30%">Descripción</th><th style="width:20%">Tipo</th><th style="width:18%">Fecha</th><th style="width:18%;text-align:right">Monto</th><th style="width:14%;text-align:center">Acción</th></tr></thead><tbody id="t-ot"></tbody></table></div>
   </div>
 </div>
-
+// ── MES-AWARE HELPERS ─────────────────────────────────────
+function mesKey(){return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0');}
+function obAplicaEnMes(o){
+  const f=(o.fecha||'').replace(/\//g,'-');
+  const parts=f.split('-');
+  if(parts.length<2)return true;
+  const yy=parseInt(parts[0]),mm=parseInt(parts[1])-1;
+  const orig=new Date(yy,mm,1);
+  if(o.rec==='Única vez')return mesActual.getFullYear()===yy&&mesActual.getMonth()===mm;
+  if(o.rec==='Bimestral'){const diff=(mesActual.getFullYear()-yy)*12+(mesActual.getMonth()-mm);return diff>=0&&diff%2===0;}
+  return mesActual>=orig;
+}
+function obFechaEnMes(o){
+  const f=(o.fecha||'').replace(/\//g,'-');
+  if(!f||o.rec==='Única vez')return o.fecha||'';
+  const parts=f.split('-');
+  if(parts.length<3)return o.fecha||'';
+  return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0')+'-'+parts[2];
+}
+function obEsPagado(o){return!!localStorage.getItem('pago_'+o.id+'_'+mesKey());}
+function _setPago(id,val){
+  const mk=mesKey();
+  if(val)localStorage.setItem('pago_'+id+'_'+mk,'1');
+  else localStorage.removeItem('pago_'+id+'_'+mk);
+}
 <!-- OBLIGACIONES -->
 <div class="sec" id="sec-obligaciones">
   <div class="shdr">
@@ -516,6 +540,8 @@ function navMes(d){
   if(fut){ban.style.display='block';ban.textContent='Período futuro — mostrando proyección basada en datos actuales';}
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
+  else ban.style.display='none';
+  renderObligaciones();renderResumen(); // ← agregar esto
 }
 
 function estBdg(e){
@@ -665,12 +691,11 @@ function filtrarOb(tab,btn){
   renderObligaciones();
 }
 function renderObligaciones(){
-  const fil=obTab==='todas'?obligaciones:obligaciones.filter(o=>o.ambito===obTab);
-  const pend=fil.filter(o=>!o.pagado);
-  const pag=fil.filter(o=>o.pagado);
-  const tP=obligaciones.filter(o=>!o.pagado).reduce((a,o)=>a+o.monto,0);
-  const tD=obligaciones.filter(o=>o.pagado).reduce((a,o)=>a+o.monto,0);
- const tPend=pend.reduce((a,o)=>a+o.monto,0);
+  const base=obTab==='todas'?obligaciones:obligaciones.filter(o=>o.ambito===obTab);
+  const fil=base.filter(obAplicaEnMes);
+  const pend=fil.filter(o=>!obEsPagado(o));
+  const pag=fil.filter(o=>obEsPagado(o));
+  const tPend=pend.reduce((a,o)=>a+o.monto,0);
   const tPag2=pag.reduce((a,o)=>a+o.monto,0);
   document.getElementById('ob-pc').textContent=pend.length+' — '+cl(tPend);
   document.getElementById('ob-dc').textContent=pag.length+' — '+cl(tPag2);
@@ -681,16 +706,19 @@ function renderObligaciones(){
     <div class="met"><div class="ml">% pagado</div><div class="mv">${Math.round(tPag2/(tPend+tPag2)*100)||0}%</div></div>`;
   const now=new Date();
   const row=arr=>arr.map(o=>{
-    const v=new Date((o.fecha||'').replace(/\//g,'-')+'T00:00:00');
-    const urg=!o.pagado&&v<now;
-    return`<tr class="${o.pagado?'done':''}">
+const row=arr=>arr.map(o=>{
+    const pagado=obEsPagado(o);
+    const fechaMes=obFechaEnMes(o);
+    const v=new Date(fechaMes.replace(/\//g,'-')+'T00:00:00');
+    const urg=!pagado&&v<now;
+    return`<tr class="${pagado?'done':''}">
       <td>${o.nombre||o.desc||''}</td><td>${catBdg(o.cat)}</td>
-      <td style="color:${urg?'var(--red)':'var(--text2)'};font-size:11px">${o.fecha||''}${urg?' ⚠':''}</td>
-      <td style="text-align:right;font-weight:600" class="${o.pagado?'pos':'neg'}">${cl(o.monto)}</td>
+      <td style="color:${urg?'var(--red)':'var(--text2)'};font-size:11px">${fechaMes}${urg?' ⚠':''}</td>
+      <td style="text-align:right;font-weight:600" class="${pagado?'pos':'neg'}">${cl(o.monto)}</td>
       <td><span class="bdg ba" style="font-size:9px">${o.rec||''}</span></td>
       <td>${ambBdg(o.ambito)}</td>
       <td style="text-align:center;display:flex;gap:3px;justify-content:center;flex-wrap:wrap">
-        ${o.pagado?'<button class="cbtn" onclick="revertirPag('+o.id+')" style="background:var(--green-bg);color:var(--green-tx);border-color:transparent">✓ Pagado</button>':'<button class="cbtn" onclick="marcarPag('+o.id+')">✓ Pagar</button>'}
+        ${pagado?'<button class="cbtn" onclick="revertirPag('+o.id+')" style="background:var(--green-bg);color:var(--green-tx);border-color:transparent">✓ Pagado</button>':'<button class="cbtn" onclick="marcarPag('+o.id+')">✓ Pagar</button>'}
         <button class="ibtn" onclick="editarOb(${o.id})">✏</button>
       </td></tr>`;
   }).join('');
