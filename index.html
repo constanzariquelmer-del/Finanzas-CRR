@@ -191,31 +191,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     <div class="ow"><table><thead><tr><th style="width:30%">Descripción</th><th style="width:20%">Tipo</th><th style="width:18%">Fecha</th><th style="width:18%;text-align:right">Monto</th><th style="width:14%;text-align:center">Acción</th></tr></thead><tbody id="t-ot"></tbody></table></div>
   </div>
 </div>
-// ── MES-AWARE HELPERS ─────────────────────────────────────
-function mesKey(){return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0');}
-function obAplicaEnMes(o){
-  const f=(o.fecha||'').replace(/\//g,'-');
-  const parts=f.split('-');
-  if(parts.length<2)return true;
-  const yy=parseInt(parts[0]),mm=parseInt(parts[1])-1;
-  const orig=new Date(yy,mm,1);
-  if(o.rec==='Única vez')return mesActual.getFullYear()===yy&&mesActual.getMonth()===mm;
-  if(o.rec==='Bimestral'){const diff=(mesActual.getFullYear()-yy)*12+(mesActual.getMonth()-mm);return diff>=0&&diff%2===0;}
-  return mesActual>=orig;
-}
-function obFechaEnMes(o){
-  const f=(o.fecha||'').replace(/\//g,'-');
-  if(!f||o.rec==='Única vez')return o.fecha||'';
-  const parts=f.split('-');
-  if(parts.length<3)return o.fecha||'';
-  return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0')+'-'+parts[2];
-}
-function obEsPagado(o){return!!localStorage.getItem('pago_'+o.id+'_'+mesKey());}
-function _setPago(id,val){
-  const mk=mesKey();
-  if(val)localStorage.setItem('pago_'+id+'_'+mk,'1');
-  else localStorage.removeItem('pago_'+id+'_'+mk);
-}
+
 <!-- OBLIGACIONES -->
 <div class="sec" id="sec-obligaciones">
   <div class="shdr">
@@ -441,7 +417,20 @@ async function cargarTodo(){
   if(su&&su.length)sueldos=su;
   if(hon&&hon.length)honorarios=hon;
   if(oi&&oi.length)otrosIng=oi;
-  if(ob&&ob.length)obligaciones=ob;
+  if(ob&&ob.length){
+    obligaciones=ob;
+    // Migrar pagado:true de Supabase a localStorage (pagos por mes)
+    ob.forEach(o=>{
+      if(o.pagado&&o.fecha){
+        const parts=(o.fecha||'').replace(/\//g,'-').split('-');
+        if(parts.length>=2){
+          const mk=parts[0]+'-'+parts[1];
+          if(!localStorage.getItem('pago_'+o.id+'_'+mk))
+            localStorage.setItem('pago_'+o.id+'_'+mk,'1');
+        }
+      }
+    });
+  }
   if(r1&&r1.length)rvD1=r1;
   if(g1&&g1.length)gsD1=g1;
   if(r2&&r2.length)rvD2=r2;
@@ -540,8 +529,7 @@ function navMes(d){
   if(fut){ban.style.display='block';ban.textContent='Período futuro — mostrando proyección basada en datos actuales';}
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
-  else ban.style.display='none';
-  renderObligaciones();renderResumen(); // ← agregar esto
+  renderObligaciones();renderResumen();
 }
 
 function estBdg(e){
@@ -683,6 +671,32 @@ function gOtroIng(){
   ['oi-desc','oi-monto','oi-fecha'].forEach(i=>document.getElementById(i).value='');
 }
 
+// ── MES-AWARE HELPERS ─────────────────────────────────────
+function mesKey(){return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0');}
+function obAplicaEnMes(o){
+  const f=(o.fecha||'').replace(/\//g,'-');
+  const parts=f.split('-');
+  if(parts.length<2)return true;
+  const yy=parseInt(parts[0]),mm=parseInt(parts[1])-1;
+  const orig=new Date(yy,mm,1);
+  if(o.rec==='Única vez')return mesActual.getFullYear()===yy&&mesActual.getMonth()===mm;
+  if(o.rec==='Bimestral'){const diff=(mesActual.getFullYear()-yy)*12+(mesActual.getMonth()-mm);return diff>=0&&diff%2===0;}
+  return mesActual>=orig;
+}
+function obFechaEnMes(o){
+  const f=(o.fecha||'').replace(/\//g,'-');
+  if(!f||o.rec==='Única vez')return o.fecha||'';
+  const parts=f.split('-');
+  if(parts.length<3)return o.fecha||'';
+  return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0')+'-'+parts[2];
+}
+function obEsPagado(o){return!!localStorage.getItem('pago_'+o.id+'_'+mesKey());}
+function _setPago(id,val){
+  const mk=mesKey();
+  if(val)localStorage.setItem('pago_'+id+'_'+mk,'1');
+  else localStorage.removeItem('pago_'+id+'_'+mk);
+}
+
 // ── OBLIGACIONES ──────────────────────────────────────────
 function filtrarOb(tab,btn){
   obTab=tab;
@@ -706,7 +720,6 @@ function renderObligaciones(){
     <div class="met"><div class="ml">% pagado</div><div class="mv">${Math.round(tPag2/(tPend+tPag2)*100)||0}%</div></div>`;
   const now=new Date();
   const row=arr=>arr.map(o=>{
-const row=arr=>arr.map(o=>{
     const pagado=obEsPagado(o);
     const fechaMes=obFechaEnMes(o);
     const v=new Date(fechaMes.replace(/\//g,'-')+'T00:00:00');
@@ -725,8 +738,8 @@ const row=arr=>arr.map(o=>{
   document.getElementById('t-ob-p').innerHTML=row(pend);
   document.getElementById('t-ob-d').innerHTML=row(pag);
 }
-function marcarPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=true;dbSet('obligaciones',o);renderObligaciones();renderResumen();toast('✓ Marcado como pagado');}
-  function revertirPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=false;dbSet('obligaciones',{...o});renderObligaciones();renderResumen();toast('↩ Revertido a pendiente');}
+function marcarPag(id){_setPago(id,true);renderObligaciones();renderResumen();toast('✓ Marcado como pagado');}
+function revertirPag(id){_setPago(id,false);renderObligaciones();renderResumen();toast('↩ Revertido a pendiente');}
 function editarOb(id){
   const o=obligaciones.find(x=>x.id===id);
   document.getElementById('oe-id').value=id;
@@ -917,8 +930,9 @@ function gPres(){
 function renderResumen(){
   const tI=sueldos.reduce((a,x)=>a+x.monto,0)+honorarios.reduce((a,x)=>a+x.monto,0)+otrosIng.reduce((a,x)=>a+x.monto,0);
   const tPerc=sueldos.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+honorarios.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+otrosIng.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
-  const tO=obligaciones.filter(o=>o.ambito==='personal').reduce((a,o)=>a+o.monto,0);
-  const tPag=obligaciones.filter(o=>o.ambito==='personal'&&o.pagado).reduce((a,o)=>a+o.monto,0);
+  const obMes=obligaciones.filter(o=>o.ambito==='personal'&&obAplicaEnMes(o));
+  const tO=obMes.reduce((a,o)=>a+o.monto,0);
+  const tPag=obMes.filter(o=>obEsPagado(o)).reduce((a,o)=>a+o.monto,0);
   const iD1=rvD1.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
   const iD2=rvD2.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
   const gD1=gsD1.reduce((a,g)=>a+g.monto,0);
