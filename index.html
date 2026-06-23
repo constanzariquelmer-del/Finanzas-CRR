@@ -532,7 +532,7 @@ function navMes(d){
   if(fut){ban.style.display='block';ban.textContent='Período futuro — mostrando proyección basada en datos actuales';}
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
-  renderIngresos();renderObligaciones();renderResumen();
+  renderIngresos();renderObligaciones();renderDeptos();renderResumen();
 }
 
 function estBdg(e){
@@ -820,38 +820,54 @@ function estReal(r){
   if(cin<=hoy)return'Activa';
   return'Próxima';
 }
+function rvEnMes(r){
+  const f=(r.entrada||'').replace(/\//g,'-');
+  const parts=f.split('-');
+  if(parts.length<2)return false;
+  return parseInt(parts[0])===mesActual.getFullYear()&&parseInt(parts[1])-1===mesActual.getMonth();
+}
+function gsEnMes(g){
+  const f=(g.fecha||'').replace(/\//g,'-');
+  const parts=f.split('-');
+  if(parts.length<2)return false;
+  return parseInt(parts[0])===mesActual.getFullYear()&&parseInt(parts[1])-1===mesActual.getMonth();
+}
 function renderDeptos(){
-  const iD1=rvD1.reduce((a,r)=>a+r.monto,0);
-  const gD1=gsD1.reduce((a,g)=>a+g.monto,0);
-  const nD1=rvD1.reduce((a,r)=>a+r.noches,0);
+  const rv1Mes=rvD1.filter(rvEnMes);
+  const gs1Mes=gsD1.filter(gsEnMes);
+  const iD1=rv1Mes.reduce((a,r)=>a+r.monto,0);
+  const gD1=gs1Mes.reduce((a,g)=>a+g.monto,0);
+  const nD1=rv1Mes.reduce((a,r)=>a+r.noches,0);
   document.getElementById('d1-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD1)}</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD1}</div><div class="ms">de 31 disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD1)}</div></div>
     <div class="met"><div class="ml">Neto Depto 320</div><div class="mv pos">${cl(iD1-gD1)}</div></div>`;
-  document.getElementById('t-d1-rv').innerHTML=rvD1.map(r=>{const est=estReal(r);return`<tr>
+  document.getElementById('t-d1-rv').innerHTML=rv1Mes.map(r=>{const est=estReal(r);return`<tr>
     <td>${r.hues}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.noches}</td>
     <td><span class="bdg bb">${r.plat}</span></td><td>${estBdg(est)}</td>
     <td style="text-align:right" class="pos">${cl(r.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimRv(1,${r.id})">✕</button></td></tr>`;}).join('');
-  document.getElementById('t-d1-gs').innerHTML=gsD1.map(g=>`<tr>
+  document.getElementById('t-d1-gs').innerHTML=gs1Mes.map(g=>`<tr>
     <td>${g.fecha}</td><td>${g.nombre||g.desc||''}</td><td>${g.cat}</td>
     <td style="text-align:right" class="neg">-${cl(g.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimGs(1,${g.id})">✕</button></td></tr>`).join('');
-  const iD2=rvD2.reduce((a,r)=>a+r.monto,0);
-  const gD2=gsD2.reduce((a,g)=>a+g.monto,0);
-  const nD2=rvD2.reduce((a,r)=>a+r.noches,0);
+  const rv2Mes=rvD2.filter(rvEnMes);
+  const gs2Mes=gsD2.filter(gsEnMes);
+  const iD2=rv2Mes.reduce((a,r)=>a+r.monto,0);
+  const gD2=gs2Mes.reduce((a,g)=>a+g.monto,0);
+  const nD2=rv2Mes.reduce((a,r)=>a+r.noches,0);
   document.getElementById('d2-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD2)}</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD2}</div><div class="ms">de 31 disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD2)}</div></div>
     <div class="met"><div class="ml">Neto Vista Ñielol</div><div class="mv ${iD2-gD2>=0?'pos':'neg'}">${cl(iD2-gD2)}</div></div>`;
-  document.getElementById('t-d2-rv').innerHTML=rvD2.map(r=>{const est=estReal(r);return`<tr>
+  document.getElementById('t-d2-rv').innerHTML=rv2Mes.map(r=>{const est=estReal(r);return`<tr>
     <td>${r.hues}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.noches}</td>
     <td><span class="bdg bb">${r.plat}</span></td><td>${estBdg(est)}</td>
     <td style="text-align:right" class="pos">${cl(r.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimRv(2,${r.id})">✕</button></td></tr>`;}).join('');
-  document.getElementById('t-d2-gs').innerHTML=gsD2.map(g=>`<tr>
+  document.getElementById('t-d2-gs').innerHTML=gs2Mes.map(g=>`<tr>
     <td>${g.fecha}</td><td>${g.nombre||g.desc||''}</td><td>${g.cat}</td>
     <td><span class="bdg bp" style="font-size:9px">${g.doc||''}</span></td>
     <td style="text-align:right" class="neg">-${cl(g.monto)}</td>
@@ -1181,3 +1197,4 @@ setTimeout(async()=>{
 </div>
 </body>
 </html>
+
