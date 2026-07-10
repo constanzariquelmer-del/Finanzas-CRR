@@ -223,8 +223,16 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   </div>
   <div class="mets" id="d1-mets"></div>
   <div class="two">
-    <div class="card"><div class="chdr">Ingresos por mes</div><div class="chwrap"><canvas id="cD1"></canvas></div></div>
-    <div class="card"><div class="chdr">Gastos operacionales</div><div class="chwrap"><canvas id="cD1G"></canvas></div></div>
+    <div class="card"><div class="chdr">Ingresos vs gastos — últimos 6 meses<div class="legend" style="margin-left:8px"><span><span class="ld" style="background:#1A8C68"></span>Ingresos</span><span><span class="ld" style="background:#C94E2A"></span>Gastos</span><span><span class="ld" style="background:#1A5FA8"></span>Neto</span></div></div><div class="chwrap"><canvas id="cD1"></canvas></div></div>
+    <div class="card"><div class="chdr">Progreso de obligaciones del depto</div><div id="d1-oblig"></div></div>
+  </div>
+  <div class="two">
+    <div class="card"><div class="chdr">Ocupación % — últimos 6 meses</div><div class="chwrap"><canvas id="cD1Oc"></canvas></div></div>
+    <div class="card"><div class="chdr">Tarifa promedio / noche (ADR) — últimos 6 meses</div><div class="chwrap"><canvas id="cD1Adr"></canvas></div></div>
+  </div>
+  <div class="two">
+    <div class="card"><div class="chdr">Gasto por categoría — mes seleccionado</div><div class="chwrap"><canvas id="cD1Gc"></canvas></div></div>
+    <div class="card"><div class="chdr">Gasto como % del ingreso del mes</div><div id="d1-gastocat"></div></div>
   </div>
   <div class="card"><div class="chdr">Reservas</div><div class="ow"><table><thead><tr><th style="width:20%">Huésped</th><th style="width:12%">Check-in</th><th style="width:12%">Check-out</th><th style="width:7%">Noches</th><th style="width:11%">Plataforma</th><th style="width:12%">Estado</th><th style="width:14%;text-align:right">Monto</th><th style="width:12%;text-align:center">Acción</th></tr></thead><tbody id="t-d1-rv"></tbody></table></div></div>
   <div class="card"><div class="chdr">Gastos</div><div class="ow"><table><thead><tr><th style="width:14%">Fecha</th><th style="width:38%">Descripción</th><th style="width:26%">Categoría</th><th style="width:14%;text-align:right">Monto</th><th style="width:8%;text-align:center">✕</th></tr></thead><tbody id="t-d1-gs"></tbody></table></div></div>
@@ -237,6 +245,18 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     <div style="display:flex;gap:6px"><button class="abtn" onclick="abrirMRv(2)">+ Reserva</button><button class="abtn" onclick="abrirM('mGd2')">+ Gasto</button></div>
   </div>
   <div class="mets" id="d2-mets"></div>
+  <div class="two">
+    <div class="card"><div class="chdr">Ingresos vs gastos — últimos 6 meses<div class="legend" style="margin-left:8px"><span><span class="ld" style="background:#1A8C68"></span>Ingresos</span><span><span class="ld" style="background:#C94E2A"></span>Gastos</span><span><span class="ld" style="background:#1A5FA8"></span>Neto</span></div></div><div class="chwrap"><canvas id="cD2"></canvas></div></div>
+    <div class="card"><div class="chdr">Progreso de obligaciones del depto</div><div id="d2-oblig"></div></div>
+  </div>
+  <div class="two">
+    <div class="card"><div class="chdr">Ocupación % — últimos 6 meses</div><div class="chwrap"><canvas id="cD2Oc"></canvas></div></div>
+    <div class="card"><div class="chdr">Tarifa promedio / noche (ADR) — últimos 6 meses</div><div class="chwrap"><canvas id="cD2Adr"></canvas></div></div>
+  </div>
+  <div class="two">
+    <div class="card"><div class="chdr">Gasto por categoría — mes seleccionado</div><div class="chwrap"><canvas id="cD2Gc"></canvas></div></div>
+    <div class="card"><div class="chdr">Gasto como % del ingreso del mes</div><div id="d2-gastocat"></div></div>
+  </div>
   <div class="card"><div class="chdr">Reservas</div><div class="ow"><table><thead><tr><th style="width:20%">Huésped</th><th style="width:12%">Check-in</th><th style="width:12%">Check-out</th><th style="width:7%">Noches</th><th style="width:11%">Plataforma</th><th style="width:12%">Estado</th><th style="width:14%;text-align:right">Monto</th><th style="width:12%;text-align:center">Acción</th></tr></thead><tbody id="t-d2-rv"></tbody></table></div></div>
   <div class="card"><div class="chdr">Gastos <span class="tag tc">con documento</span><button class="abtn" style="margin-left:8px" onclick="abrirM('mGd2')">+ Gasto</button></div><div class="ow"><table><thead><tr><th style="width:12%">Fecha</th><th style="width:28%">Descripción</th><th style="width:18%">Categoría</th><th style="width:20%">N° Doc.</th><th style="width:14%;text-align:right">Monto</th><th style="width:8%;text-align:center">✕</th></tr></thead><tbody id="t-d2-gs"></tbody></table></div></div>
 </div>
@@ -511,6 +531,24 @@ function fechaEnMes(fecha){
   }
   return true;
 }
+// Igual que fechaEnMes pero contra un mes arbitrario "d" (Date, día 1). Sin fecha => false (no se puede ubicar).
+function fechaCoincideConMes(fecha,d){
+  if(!fecha)return false;
+  if(/^\d{4}-\d{2}-\d{2}/.test(fecha)){
+    const fd=new Date(fecha.slice(0,10)+'T00:00:00');
+    if(isNaN(fd))return false;
+    return fd.getFullYear()===d.getFullYear()&&fd.getMonth()===d.getMonth();
+  }
+  if(/^\d{1,2}\/\d{1,2}$/.test(fecha))return parseInt(fecha.split('/')[1],10)-1===d.getMonth();
+  return false;
+}
+// Array de los últimos n meses (Date, día 1), terminando en el mes actual real.
+function ultimosMeses(n){
+  const hoy=new Date();
+  return Array.from({length:n},(_,i)=>new Date(hoy.getFullYear(),hoy.getMonth()-(n-1)+i,1));
+}
+function diasEnMes(d){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate();}
+function lblMes(d){return MESES[d.getMonth()].slice(0,3)+' '+String(d.getFullYear()).slice(-2);}
 function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.opacity='1';
@@ -541,6 +579,10 @@ function navMes(d){
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
   renderIngresos();renderObligaciones();renderDeptos();renderResumen();
+  const activeSec=document.querySelector('.sec.active');
+  if(activeSec&&(activeSec.id==='sec-depto320'||activeSec.id==='sec-nielol')){
+    initChart(activeSec.id.replace('sec-',''));
+  }
 }
 
 function estBdg(e){
@@ -815,6 +857,36 @@ function gOb(){
 }
 
 // ── DEPTOS ───────────────────────────────────────────────
+function renderOblProgreso(ambito,elId){
+  const obs=obligaciones.filter(o=>o.ambito===ambito);
+  const el=document.getElementById(elId);
+  if(!el)return;
+  if(!obs.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center;padding:1.5rem 0">Sin obligaciones asociadas a este ámbito</div>';return;}
+  const total=obs.reduce((a,o)=>a+o.monto,0);
+  const cubierto=obs.reduce((a,o)=>a+(o.pagado?o.monto:(o.abonado||0)),0);
+  const pct=total>0?Math.round(cubierto/total*100):0;
+  const porCat={};
+  obs.forEach(o=>{const c=o.cat||'Otro';porCat[c]=(porCat[c]||0)+o.monto;});
+  const catsHtml=Object.entries(porCat).sort((a,b)=>b[1]-a[1]).map(([c,m])=>`<div class="prh" style="margin-bottom:6px"><span>${c}</span><span>${cl(m)}</span></div>`).join('');
+  el.innerHTML=`
+    <div class="pr"><div class="prh"><span>Pagado / abonado</span><span>${pct}% — ${cl(cubierto)} de ${cl(total)}</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:#1A5FA8"></div></div></div>
+    <div style="margin-top:10px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:4px">Por categoría</div>
+    ${catsHtml}`;
+}
+const CATCOLORS=['#C94E2A','#A86A0A','#1A5FA8','#5040B0','#8B3A8B','#2A8BA8','#1A8C68','#6A6A65'];
+function renderGastoCatLista(gastos,ingresoMes,elId){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  const porCat={};
+  gastos.forEach(g=>{const c=g.cat||'Otro';porCat[c]=(porCat[c]||0)+g.monto;});
+  const entries=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center;padding:1.5rem 0">Sin gastos este mes</div>';return;}
+  const totalG=entries.reduce((a,e)=>a+e[1],0);
+  el.innerHTML=entries.map(([c,m],i)=>{
+    const pctIng=ingresoMes>0?Math.round(m/ingresoMes*100):0;
+    return`<div class="pr"><div class="prh"><span><span class="ld" style="background:${CATCOLORS[i%CATCOLORS.length]}"></span>${c}</span><span>${cl(m)} · ${pctIng}% del ingreso</span></div><div class="pb"><div class="pf" style="width:${Math.min(100,pctIng)}%;background:${CATCOLORS[i%CATCOLORS.length]}"></div></div></div>`;
+  }).join('')+`<div style="font-size:11px;color:var(--text2);margin-top:6px">Total gasto: ${cl(totalG)} — ${ingresoMes>0?Math.round(totalG/ingresoMes*100):0}% del ingreso del mes</div>`;
+}
 function renderDeptos(){
   const rv1F=rvD1.filter(r=>fechaEnMes(r.entrada));
   const gs1F=gsD1.filter(g=>fechaEnMes(g.fecha));
@@ -823,7 +895,7 @@ function renderDeptos(){
   const nD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
   document.getElementById('d1-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD1)}</div></div>
-    <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD1}</div><div class="ms">de 31 disp.</div></div>
+    <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD1}</div><div class="ms">de ${diasEnMes(mesActual)} disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD1)}</div></div>
     <div class="met"><div class="ml">Neto Depto 320</div><div class="mv pos">${cl(iD1-gD1)}</div></div>`;
   document.getElementById('t-d1-rv').innerHTML=rv1F.map(r=>`<tr>
@@ -842,7 +914,7 @@ function renderDeptos(){
   const nD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
   document.getElementById('d2-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD2)}</div></div>
-    <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD2}</div><div class="ms">de 31 disp.</div></div>
+    <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD2}</div><div class="ms">de ${diasEnMes(mesActual)} disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD2)}</div></div>
     <div class="met"><div class="ml">Neto Vista Ñielol</div><div class="mv ${iD2-gD2>=0?'pos':'neg'}">${cl(iD2-gD2)}</div></div>`;
   document.getElementById('t-d2-rv').innerHTML=rv2F.map(r=>`<tr>
@@ -855,6 +927,10 @@ function renderDeptos(){
     <td><span class="bdg bp" style="font-size:9px">${g.doc||''}</span></td>
     <td style="text-align:right" class="neg">-${cl(g.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimGs(2,${g.id})">✕</button></td></tr>`).join('');
+  renderOblProgreso('depto320','d1-oblig');
+  renderOblProgreso('nielol','d2-oblig');
+  renderGastoCatLista(gs1F,iD1,'d1-gastocat');
+  renderGastoCatLista(gs2F,iD2,'d2-gastocat');
 }
 function elimRv(d,id){if(d===1)rvD1=rvD1.filter(r=>r.id!==id);else rvD2=rvD2.filter(r=>r.id!==id);dbDel(d===1?'reservas_d1':'reservas_d2',id);renderDeptos();}
 function elimGs(d,id){if(d===1)gsD1=gsD1.filter(g=>g.id!==id);else gsD2=gsD2.filter(g=>g.id!==id);dbDel(d===1?'gastos_d1':'gastos_d2',id);renderDeptos();}
@@ -1101,6 +1177,52 @@ function gHito(){
 
 // ── GRÁFICOS ─────────────────────────────────────────────
 const CHS={};
+// Construye los 4 gráficos de un depto (num=1 → Depto 320 / rvD1,gsD1; num=2 → Vista Ñielol / rvD2,gsD2).
+// Se reconstruyen cada vez que se llama (no se cachean) porque dependen del mes seleccionado.
+function buildDeptoCharts(num){
+  const rv=num===1?rvD1:rvD2;
+  const gs=num===1?gsD1:gsD2;
+  const meses6=ultimosMeses(6);
+  const lbls6=meses6.map(lblMes);
+  const ingM=meses6.map(d=>rv.filter(r=>r.est!=='Próxima'&&fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.monto,0));
+  const gsM=meses6.map(d=>gs.filter(g=>fechaCoincideConMes(g.fecha,d)).reduce((a,g)=>a+g.monto,0));
+  const netoM=meses6.map((_,i)=>ingM[i]-gsM[i]);
+  const nochesM=meses6.map(d=>rv.filter(r=>r.est!=='Próxima'&&fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.noches,0));
+  const ocupM=meses6.map((d,i)=>Math.round(nochesM[i]/diasEnMes(d)*100));
+  const adrM=meses6.map((_,i)=>nochesM[i]>0?Math.round(ingM[i]/nochesM[i]):0);
+
+  const kCombo='d'+num,kOc='d'+num+'oc',kAdr='d'+num+'adr',kGc='d'+num+'gc';
+  const idCombo='cD'+num,idOc='cD'+num+'Oc',idAdr='cD'+num+'Adr',idGc='cD'+num+'Gc';
+
+  if(CHS[kCombo])CHS[kCombo].destroy();
+  CHS[kCombo]=new Chart(document.getElementById(idCombo),{type:'bar',
+    data:{labels:lbls6,
+      datasets:[{label:'Ingresos',data:ingM,backgroundColor:'rgba(26,140,104,.6)',order:2},
+                {label:'Gastos',data:gsM,backgroundColor:'rgba(201,78,42,.6)',order:2},
+                {label:'Neto',data:netoM,type:'line',borderColor:'#1A5FA8',backgroundColor:'transparent',borderWidth:2,tension:.3,order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
+
+  if(CHS[kOc])CHS[kOc].destroy();
+  CHS[kOc]=new Chart(document.getElementById(idOc),{type:'line',
+    data:{labels:lbls6,datasets:[{label:'Ocupación %',data:ocupM,borderColor:'#1A5FA8',backgroundColor:'rgba(26,95,168,.12)',fill:true,tension:.35,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false}}}}});
+
+  if(CHS[kAdr])CHS[kAdr].destroy();
+  CHS[kAdr]=new Chart(document.getElementById(idAdr),{type:'line',
+    data:{labels:lbls6,datasets:[{label:'ADR',data:adrM,borderColor:'#A86A0A',backgroundColor:'rgba(168,106,10,.12)',fill:true,tension:.35,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
+
+  const gastosMesActual=gs.filter(g=>fechaEnMes(g.fecha));
+  const porCat={};
+  gastosMesActual.forEach(g=>{const c=g.cat||'Otro';porCat[c]=(porCat[c]||0)+g.monto;});
+  const entries=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  if(CHS[kGc]){CHS[kGc].destroy();CHS[kGc]=null;}
+  if(entries.length){
+    CHS[kGc]=new Chart(document.getElementById(idGc),{type:'doughnut',
+      data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:entries.map((_,i)=>CATCOLORS[i%CATCOLORS.length]),borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+  }
+}
 function initChart(sec){
   if(sec==='resumen'){
     if(!CHS.fuentes){
@@ -1119,16 +1241,8 @@ function initChart(sec){
         options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e6).toFixed(1)+'M'}},x:{ticks:{autoSkip:false}}}}});
     }
   }
-  if(sec==='depto320'&&!CHS.d1){
-    CHS.d1=new Chart(document.getElementById('cD1'),{type:'bar',
-      data:{labels:['Ene','Feb','Mar','Abr','May'],
-        datasets:[{label:'Airbnb',data:[200000,498000,546920,500000,rvD1.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0)],backgroundColor:'#1A5FA8'}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
-    CHS.d1g=new Chart(document.getElementById('cD1G'),{type:'bar',
-      data:{labels:['Ene','Feb','Mar','Abr','May'],
-        datasets:[{label:'Gastos',data:[445475,562453,808154,718916,gsD1.reduce((a,g)=>a+g.monto,0)],backgroundColor:'#C94E2A'}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
-  }
+  if(sec==='depto320'){buildDeptoCharts(1);}
+  if(sec==='nielol'){buildDeptoCharts(2);}
   if(sec==='ahorro'){
     if(!CHS.ah){
       const base=ahorros.reduce((a,x)=>a+x.actual,0);
