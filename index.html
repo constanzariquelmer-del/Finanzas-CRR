@@ -491,11 +491,26 @@ let hitos=[
 let obTab='personal';
 let rvDepto=1;
 let gdDepto=1;
-let mesActual=new Date(2026,4,1);
+let mesActual=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);})();
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 // ── HELPERS ───────────────────────────────────────────────
 function cl(v){return '$'+Math.round(v).toLocaleString('es-CL')}
+// Determina si una fecha (ISO yyyy-mm-dd o dd/mm sin año) cae en mesActual.
+// Sin fecha => no se puede filtrar, se muestra siempre para no perder datos.
+function fechaEnMes(fecha){
+  if(!fecha)return true;
+  if(/^\d{4}-\d{2}-\d{2}/.test(fecha)){
+    const d=new Date(fecha.slice(0,10)+'T00:00:00');
+    if(isNaN(d))return true;
+    return d.getFullYear()===mesActual.getFullYear()&&d.getMonth()===mesActual.getMonth();
+  }
+  if(/^\d{1,2}\/\d{1,2}$/.test(fecha)){
+    const mm=parseInt(fecha.split('/')[1],10)-1;
+    return mm===mesActual.getMonth();
+  }
+  return true;
+}
 function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.opacity='1';
@@ -516,7 +531,8 @@ function abrirMGd(d){gdDepto=d;document.getElementById('mgd-title').textContent=
 
 function navMes(d){
   mesActual=new Date(mesActual.getFullYear(),mesActual.getMonth()+d,1);
-  const now=new Date(2026,4,1);
+  const hoy=new Date();
+  const now=new Date(hoy.getFullYear(),hoy.getMonth(),1);
   const label=MESES[mesActual.getMonth()]+' '+mesActual.getFullYear();
   const fut=mesActual>now,pas=mesActual<now;
   document.getElementById('mes-txt').textContent=label+(fut?' (proj.)':pas?' (hist.)':'');
@@ -524,6 +540,7 @@ function navMes(d){
   if(fut){ban.style.display='block';ban.textContent='Período futuro — mostrando proyección basada en datos actuales';}
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
+  renderIngresos();renderObligaciones();renderDeptos();renderResumen();
 }
 
 function estBdg(e){
@@ -546,22 +563,25 @@ function ambBdg(a){
 
 // ── INGRESOS ──────────────────────────────────────────────
 function renderIngresos(){
-  const tSu=sueldos.reduce((a,x)=>a+x.monto,0);
-  const tHon=honorarios.reduce((a,x)=>a+x.monto,0);
-  const tOt=otrosIng.reduce((a,x)=>a+x.monto,0);
-  const perc=sueldos.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
-    +honorarios.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
-    +otrosIng.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
+  const suF=sueldos.filter(x=>fechaEnMes(x.fecha));
+  const honF=honorarios.filter(x=>fechaEnMes(x.fecha));
+  const otF=otrosIng.filter(x=>fechaEnMes(x.fecha));
+  const tSu=suF.reduce((a,x)=>a+x.monto,0);
+  const tHon=honF.reduce((a,x)=>a+x.monto,0);
+  const tOt=otF.reduce((a,x)=>a+x.monto,0);
+  const perc=suF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
+    +honF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
+    +otF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
   const total=tSu+tHon+tOt;
-  document.getElementById('c-su').textContent=sueldos.filter(x=>!x.percibido).length+' pend.';
-  document.getElementById('c-hon').textContent=honorarios.filter(x=>!x.percibido).length+' pend.';
-  document.getElementById('c-ot').textContent=otrosIng.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-su').textContent=suF.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-hon').textContent=honF.filter(x=>!x.percibido).length+' pend.';
+  document.getElementById('c-ot').textContent=otF.filter(x=>!x.percibido).length+' pend.';
   document.getElementById('ing-mets').innerHTML=`
     <div class="met"><div class="ml">Total esperado</div><div class="mv">${cl(total)}</div></div>
     <div class="met"><div class="ml">Ya percibido</div><div class="mv pos">${cl(perc)}</div></div>
     <div class="met"><div class="ml">Por percibir</div><div class="mv amb">${cl(total-perc)}</div></div>
-    <div class="met"><div class="ml">Honorarios</div><div class="mv">${cl(tHon)}</div><div class="ms">${honorarios.length} clientes</div></div>`;
-  document.getElementById('t-su').innerHTML=sueldos.map(s=>`<tr class="${s.percibido?'done':''}">
+    <div class="met"><div class="ml">Honorarios</div><div class="mv">${cl(tHon)}</div><div class="ms">${honF.length} clientes</div></div>`;
+  document.getElementById('t-su').innerHTML=suF.map(s=>`<tr class="${s.percibido?'done':''}">
     <td>${s.nombre||s.desc||''}<span style="color:var(--text3);font-size:10px"> ${s.emp||''}</span></td>
     <td>${s.fecha||''}</td>
     <td style="text-align:right;font-weight:600" class="${s.percibido?'pos':'amb'}">${cl(s.monto)}</td>
@@ -570,7 +590,7 @@ function renderIngresos(){
       <button class="ibtn" onclick="editarSu(${s.id})">✏</button>
       <button class="ibtn" onclick="eliminarSu(${s.id})">✕</button>
     </td></tr>`).join('');
-  document.getElementById('t-hon').innerHTML=honorarios.map(h=>`<tr class="${h.percibido?'done':''}">
+  document.getElementById('t-hon').innerHTML=honF.map(h=>`<tr class="${h.percibido?'done':''}">
     <td><strong>${h.cliente}</strong></td>
     <td style="color:var(--text2);font-size:11px">${h.concepto}</td>
     <td>${h.fecha||''}</td>
@@ -581,7 +601,7 @@ function renderIngresos(){
       <button class="ibtn" onclick="editarHon(${h.id})">✏</button>
       <button class="ibtn" onclick="eliminarHon(${h.id})">✕</button>
     </td></tr>`).join('');
-  document.getElementById('t-ot').innerHTML=otrosIng.map(o=>`<tr class="${o.percibido?'done':''}">
+  document.getElementById('t-ot').innerHTML=otF.map(o=>`<tr class="${o.percibido?'done':''}">
     <td>${o.nombre||o.desc||''}</td>
     <td><span class="bdg bb">${o.tipo}</span></td>
     <td>${o.fecha||''}</td>
@@ -673,7 +693,8 @@ function filtrarOb(tab,btn){
   renderObligaciones();
 }
 function renderObligaciones(){
-  const fil=obTab==='todas'?obligaciones:obligaciones.filter(o=>o.ambito===obTab);
+  const base=(obTab==='todas'?obligaciones:obligaciones.filter(o=>o.ambito===obTab)).filter(o=>fechaEnMes(o.fecha));
+  const fil=base;
   const pend=fil.filter(o=>!o.pagado);
   const pag=fil.filter(o=>o.pagado);
   const tP=obligaciones.filter(o=>!o.pagado).reduce((a,o)=>a+o.monto,0);
@@ -795,37 +816,41 @@ function gOb(){
 
 // ── DEPTOS ───────────────────────────────────────────────
 function renderDeptos(){
-  const iD1=rvD1.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const gD1=gsD1.reduce((a,g)=>a+g.monto,0);
-  const nD1=rvD1.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
+  const rv1F=rvD1.filter(r=>fechaEnMes(r.entrada));
+  const gs1F=gsD1.filter(g=>fechaEnMes(g.fecha));
+  const iD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const gD1=gs1F.reduce((a,g)=>a+g.monto,0);
+  const nD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
   document.getElementById('d1-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD1)}</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD1}</div><div class="ms">de 31 disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD1)}</div></div>
     <div class="met"><div class="ml">Neto Depto 320</div><div class="mv pos">${cl(iD1-gD1)}</div></div>`;
-  document.getElementById('t-d1-rv').innerHTML=rvD1.map(r=>`<tr>
+  document.getElementById('t-d1-rv').innerHTML=rv1F.map(r=>`<tr>
     <td>${r.hues}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.noches}</td>
     <td><span class="bdg bb">${r.plat}</span></td><td>${estBdg(r.est)}</td>
     <td style="text-align:right" class="${r.est==='Próxima'?'':'pos'}">${cl(r.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimRv(1,${r.id})">✕</button></td></tr>`).join('');
-  document.getElementById('t-d1-gs').innerHTML=gsD1.map(g=>`<tr>
+  document.getElementById('t-d1-gs').innerHTML=gs1F.map(g=>`<tr>
     <td>${g.fecha}</td><td>${g.nombre||g.desc||''}</td><td>${g.cat}</td>
     <td style="text-align:right" class="neg">-${cl(g.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimGs(1,${g.id})">✕</button></td></tr>`).join('');
-  const iD2=rvD2.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const gD2=gsD2.reduce((a,g)=>a+g.monto,0);
-  const nD2=rvD2.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
+  const rv2F=rvD2.filter(r=>fechaEnMes(r.entrada));
+  const gs2F=gsD2.filter(g=>fechaEnMes(g.fecha));
+  const iD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const gD2=gs2F.reduce((a,g)=>a+g.monto,0);
+  const nD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
   document.getElementById('d2-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD2)}</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD2}</div><div class="ms">de 31 disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD2)}</div></div>
     <div class="met"><div class="ml">Neto Vista Ñielol</div><div class="mv ${iD2-gD2>=0?'pos':'neg'}">${cl(iD2-gD2)}</div></div>`;
-  document.getElementById('t-d2-rv').innerHTML=rvD2.map(r=>`<tr>
+  document.getElementById('t-d2-rv').innerHTML=rv2F.map(r=>`<tr>
     <td>${r.hues}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.noches}</td>
     <td><span class="bdg bb">${r.plat}</span></td><td>${estBdg(r.est)}</td>
     <td style="text-align:right" class="pos">${cl(r.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimRv(2,${r.id})">✕</button></td></tr>`).join('');
-  document.getElementById('t-d2-gs').innerHTML=gsD2.map(g=>`<tr>
+  document.getElementById('t-d2-gs').innerHTML=gs2F.map(g=>`<tr>
     <td>${g.fecha}</td><td>${g.nombre||g.desc||''}</td><td>${g.cat}</td>
     <td><span class="bdg bp" style="font-size:9px">${g.doc||''}</span></td>
     <td style="text-align:right" class="neg">-${cl(g.monto)}</td>
@@ -944,14 +969,22 @@ function gPres(){
 
 // ── RESUMEN ───────────────────────────────────────────────
 function renderResumen(){
-  const tI=sueldos.reduce((a,x)=>a+x.monto,0)+honorarios.reduce((a,x)=>a+x.monto,0)+otrosIng.reduce((a,x)=>a+x.monto,0);
-  const tPerc=sueldos.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+honorarios.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+otrosIng.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
-  const tO=obligaciones.filter(o=>o.ambito==='personal').reduce((a,o)=>a+o.monto,0);
-  const tPag=obligaciones.filter(o=>o.ambito==='personal'&&o.pagado).reduce((a,o)=>a+o.monto,0);
-  const iD1=rvD1.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const iD2=rvD2.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const gD1=gsD1.reduce((a,g)=>a+g.monto,0);
-  const gD2=gsD2.reduce((a,g)=>a+g.monto,0);
+  const suF=sueldos.filter(x=>fechaEnMes(x.fecha));
+  const honF=honorarios.filter(x=>fechaEnMes(x.fecha));
+  const otF=otrosIng.filter(x=>fechaEnMes(x.fecha));
+  const obF=obligaciones.filter(o=>fechaEnMes(o.fecha));
+  const rv1F=rvD1.filter(r=>fechaEnMes(r.entrada));
+  const rv2F=rvD2.filter(r=>fechaEnMes(r.entrada));
+  const gs1F=gsD1.filter(g=>fechaEnMes(g.fecha));
+  const gs2F=gsD2.filter(g=>fechaEnMes(g.fecha));
+  const tI=suF.reduce((a,x)=>a+x.monto,0)+honF.reduce((a,x)=>a+x.monto,0)+otF.reduce((a,x)=>a+x.monto,0);
+  const tPerc=suF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+honF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+otF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
+  const tO=obF.filter(o=>o.ambito==='personal').reduce((a,o)=>a+o.monto,0);
+  const tPag=obF.filter(o=>o.ambito==='personal'&&o.pagado).reduce((a,o)=>a+o.monto,0);
+  const iD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const iD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const gD1=gs1F.reduce((a,g)=>a+g.monto,0);
+  const gD2=gs2F.reduce((a,g)=>a+g.monto,0);
   const flujo=tI-tO;
   document.getElementById('r-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos personales</div><div class="mv pos">${cl(tI)}</div><div class="ms pos">${cl(tPerc)} percibidos</div></div>
@@ -1136,6 +1169,7 @@ function renderAll(){
 }
 
 // ── INIT ─────────────────────────────────────────────────
+document.getElementById('mes-txt').textContent=MESES[mesActual.getMonth()]+' '+mesActual.getFullYear();
 renderAll();
 setTimeout(()=>initChart('resumen'),120);
 // Load Supabase data after scripts load
