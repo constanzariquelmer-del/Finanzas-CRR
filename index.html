@@ -860,10 +860,10 @@ function gOb(){
 function renderOblProgreso(ambito,elId){
   const obs=obligaciones.filter(o=>o.ambito===ambito);
   const el=document.getElementById(elId);
-  if(!el)return;
-  if(!obs.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center;padding:1.5rem 0">Sin obligaciones asociadas a este ámbito</div>';return;}
   const total=obs.reduce((a,o)=>a+o.monto,0);
   const cubierto=obs.reduce((a,o)=>a+(o.pagado?o.monto:(o.abonado||0)),0);
+  if(!el)return{total,cubierto};
+  if(!obs.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center;padding:1.5rem 0">Sin obligaciones asociadas a este ámbito</div>';return{total,cubierto};}
   const pct=total>0?Math.round(cubierto/total*100):0;
   const porCat={};
   obs.forEach(o=>{const c=o.cat||'Otro';porCat[c]=(porCat[c]||0)+o.monto;});
@@ -872,6 +872,7 @@ function renderOblProgreso(ambito,elId){
     <div class="pr"><div class="prh"><span>Pagado / abonado</span><span>${pct}% — ${cl(cubierto)} de ${cl(total)}</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:#1A5FA8"></div></div></div>
     <div style="margin-top:10px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:4px">Por categoría</div>
     ${catsHtml}`;
+  return{total,cubierto};
 }
 const CATCOLORS=['#C94E2A','#A86A0A','#1A5FA8','#5040B0','#8B3A8B','#2A8BA8','#1A8C68','#6A6A65'];
 function renderGastoCatLista(gastos,ingresoMes,elId){
@@ -892,13 +893,15 @@ function renderDeptos(){
   const gs1F=gsD1.filter(g=>fechaEnMes(g.fecha));
   const iD1=rv1F.reduce((a,r)=>a+r.monto,0);
   const iD1Conf=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const gD1=gs1F.reduce((a,g)=>a+g.monto,0);
+  const gs1Op=gs1F.reduce((a,g)=>a+g.monto,0);
+  const ob1=renderOblProgreso('depto320','d1-oblig');
+  const gD1=gs1Op+ob1.cubierto;
   const nD1=rv1F.reduce((a,r)=>a+r.noches,0);
   document.getElementById('d1-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD1)}</div><div class="ms">${cl(iD1Conf)} confirmados</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD1}</div><div class="ms">de ${diasEnMes(mesActual)} disp.</div></div>
-    <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD1)}</div></div>
-    <div class="met"><div class="ml">Neto Depto 320</div><div class="mv pos">${cl(iD1-gD1)}</div></div>`;
+    <div class="met"><div class="ml">Gastos totales</div><div class="mv neg">${cl(gD1)}</div><div class="ms">${cl(gs1Op)} operac. + ${cl(ob1.cubierto)} oblig.</div></div>
+    <div class="met"><div class="ml">Neto Depto 320</div><div class="mv ${iD1-gD1>=0?'pos':'neg'}">${cl(iD1-gD1)}</div></div>`;
   document.getElementById('t-d1-rv').innerHTML=rv1F.map(r=>`<tr>
     <td>${r.hues}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.noches}</td>
     <td><span class="bdg bb">${r.plat}</span></td><td>${estBdg(r.est)}</td>
@@ -912,12 +915,14 @@ function renderDeptos(){
   const gs2F=gsD2.filter(g=>fechaEnMes(g.fecha));
   const iD2=rv2F.reduce((a,r)=>a+r.monto,0);
   const iD2Conf=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const gD2=gs2F.reduce((a,g)=>a+g.monto,0);
+  const gs2Op=gs2F.reduce((a,g)=>a+g.monto,0);
+  const ob2=renderOblProgreso('nielol','d2-oblig');
+  const gD2=gs2Op+ob2.cubierto;
   const nD2=rv2F.reduce((a,r)=>a+r.noches,0);
   document.getElementById('d2-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD2)}</div><div class="ms">${cl(iD2Conf)} confirmados</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD2}</div><div class="ms">de ${diasEnMes(mesActual)} disp.</div></div>
-    <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD2)}</div></div>
+    <div class="met"><div class="ml">Gastos totales</div><div class="mv neg">${cl(gD2)}</div><div class="ms">${cl(gs2Op)} operac. + ${cl(ob2.cubierto)} oblig.</div></div>
     <div class="met"><div class="ml">Neto Vista Ñielol</div><div class="mv ${iD2-gD2>=0?'pos':'neg'}">${cl(iD2-gD2)}</div></div>`;
   document.getElementById('t-d2-rv').innerHTML=rv2F.map(r=>`<tr>
     <td>${r.hues}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.noches}</td>
@@ -929,10 +934,10 @@ function renderDeptos(){
     <td><span class="bdg bp" style="font-size:9px">${g.doc||''}</span></td>
     <td style="text-align:right" class="neg">-${cl(g.monto)}</td>
     <td style="text-align:center"><button class="ibtn" onclick="elimGs(2,${g.id})">✕</button></td></tr>`).join('');
-  renderOblProgreso('depto320','d1-oblig');
-  renderOblProgreso('nielol','d2-oblig');
-  renderGastoCatLista(gs1F,iD1,'d1-gastocat');
-  renderGastoCatLista(gs2F,iD2,'d2-gastocat');
+  const ob1Items=obligaciones.filter(o=>o.ambito==='depto320').map(o=>({cat:o.cat||'Otro',monto:o.pagado?o.monto:(o.abonado||0)})).filter(o=>o.monto>0);
+  const ob2Items=obligaciones.filter(o=>o.ambito==='nielol').map(o=>({cat:o.cat||'Otro',monto:o.pagado?o.monto:(o.abonado||0)})).filter(o=>o.monto>0);
+  renderGastoCatLista([...gs1F,...ob1Items],iD1,'d1-gastocat');
+  renderGastoCatLista([...gs2F,...ob2Items],iD2,'d2-gastocat');
 }
 function elimRv(d,id){if(d===1)rvD1=rvD1.filter(r=>r.id!==id);else rvD2=rvD2.filter(r=>r.id!==id);dbDel(d===1?'reservas_d1':'reservas_d2',id);renderDeptos();}
 function elimGs(d,id){if(d===1)gsD1=gsD1.filter(g=>g.id!==id);else gsD2=gsD2.filter(g=>g.id!==id);dbDel(d===1?'gastos_d1':'gastos_d2',id);renderDeptos();}
@@ -1061,8 +1066,10 @@ function renderResumen(){
   const tPag=obF.filter(o=>o.ambito==='personal'&&o.pagado).reduce((a,o)=>a+o.monto,0);
   const iD1=rv1F.reduce((a,r)=>a+r.monto,0);
   const iD2=rv2F.reduce((a,r)=>a+r.monto,0);
-  const gD1=gs1F.reduce((a,g)=>a+g.monto,0);
-  const gD2=gs2F.reduce((a,g)=>a+g.monto,0);
+  const obD1=obligaciones.filter(o=>o.ambito==='depto320').reduce((a,o)=>a+(o.pagado?o.monto:(o.abonado||0)),0);
+  const obD2=obligaciones.filter(o=>o.ambito==='nielol').reduce((a,o)=>a+(o.pagado?o.monto:(o.abonado||0)),0);
+  const gD1=gs1F.reduce((a,g)=>a+g.monto,0)+obD1;
+  const gD2=gs2F.reduce((a,g)=>a+g.monto,0)+obD2;
   const flujo=tI-tO;
   document.getElementById('r-mets').innerHTML=`
     <div class="met"><div class="ml">Ingresos personales</div><div class="mv pos">${cl(tI)}</div><div class="ms pos">${cl(tPerc)} percibidos</div></div>
@@ -1217,6 +1224,11 @@ function buildDeptoCharts(num){
   const gastosMesActual=gs.filter(g=>fechaEnMes(g.fecha));
   const porCat={};
   gastosMesActual.forEach(g=>{const c=g.cat||'Otro';porCat[c]=(porCat[c]||0)+g.monto;});
+  const obAmbito=num===1?'depto320':'nielol';
+  obligaciones.filter(o=>o.ambito===obAmbito).forEach(o=>{
+    const m=o.pagado?o.monto:(o.abonado||0);
+    if(m>0){const c=o.cat||'Otro';porCat[c]=(porCat[c]||0)+m;}
+  });
   const entries=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
   if(CHS[kGc]){CHS[kGc].destroy();CHS[kGc]=null;}
   if(entries.length){
