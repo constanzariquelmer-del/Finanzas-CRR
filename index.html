@@ -890,11 +890,12 @@ function renderGastoCatLista(gastos,ingresoMes,elId){
 function renderDeptos(){
   const rv1F=rvD1.filter(r=>fechaEnMes(r.entrada));
   const gs1F=gsD1.filter(g=>fechaEnMes(g.fecha));
-  const iD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const iD1=rv1F.reduce((a,r)=>a+r.monto,0);
+  const iD1Conf=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
   const gD1=gs1F.reduce((a,g)=>a+g.monto,0);
-  const nD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
+  const nD1=rv1F.reduce((a,r)=>a+r.noches,0);
   document.getElementById('d1-mets').innerHTML=`
-    <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD1)}</div></div>
+    <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD1)}</div><div class="ms">${cl(iD1Conf)} confirmados</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD1}</div><div class="ms">de ${diasEnMes(mesActual)} disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD1)}</div></div>
     <div class="met"><div class="ml">Neto Depto 320</div><div class="mv pos">${cl(iD1-gD1)}</div></div>`;
@@ -909,11 +910,12 @@ function renderDeptos(){
     <td style="text-align:center"><button class="ibtn" onclick="elimGs(1,${g.id})">✕</button></td></tr>`).join('');
   const rv2F=rvD2.filter(r=>fechaEnMes(r.entrada));
   const gs2F=gsD2.filter(g=>fechaEnMes(g.fecha));
-  const iD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const iD2=rv2F.reduce((a,r)=>a+r.monto,0);
+  const iD2Conf=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
   const gD2=gs2F.reduce((a,g)=>a+g.monto,0);
-  const nD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.noches,0);
+  const nD2=rv2F.reduce((a,r)=>a+r.noches,0);
   document.getElementById('d2-mets').innerHTML=`
-    <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD2)}</div></div>
+    <div class="met"><div class="ml">Ingresos mes</div><div class="mv pos">${cl(iD2)}</div><div class="ms">${cl(iD2Conf)} confirmados</div></div>
     <div class="met"><div class="ml">Noches ocup.</div><div class="mv">${nD2}</div><div class="ms">de ${diasEnMes(mesActual)} disp.</div></div>
     <div class="met"><div class="ml">Gastos operac.</div><div class="mv neg">${cl(gD2)}</div></div>
     <div class="met"><div class="ml">Neto Vista Ñielol</div><div class="mv ${iD2-gD2>=0?'pos':'neg'}">${cl(iD2-gD2)}</div></div>`;
@@ -1057,8 +1059,8 @@ function renderResumen(){
   const tPerc=suF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+honF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)+otF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
   const tO=obF.filter(o=>o.ambito==='personal').reduce((a,o)=>a+o.monto,0);
   const tPag=obF.filter(o=>o.ambito==='personal'&&o.pagado).reduce((a,o)=>a+o.monto,0);
-  const iD1=rv1F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
-  const iD2=rv2F.filter(r=>r.est!=='Próxima').reduce((a,r)=>a+r.monto,0);
+  const iD1=rv1F.reduce((a,r)=>a+r.monto,0);
+  const iD2=rv2F.reduce((a,r)=>a+r.monto,0);
   const gD1=gs1F.reduce((a,g)=>a+g.monto,0);
   const gD2=gs2F.reduce((a,g)=>a+g.monto,0);
   const flujo=tI-tO;
@@ -1184,10 +1186,10 @@ function buildDeptoCharts(num){
   const gs=num===1?gsD1:gsD2;
   const meses6=ultimosMeses(6);
   const lbls6=meses6.map(lblMes);
-  const ingM=meses6.map(d=>rv.filter(r=>r.est!=='Próxima'&&fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.monto,0));
+  const ingM=meses6.map(d=>rv.filter(r=>fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.monto,0));
   const gsM=meses6.map(d=>gs.filter(g=>fechaCoincideConMes(g.fecha,d)).reduce((a,g)=>a+g.monto,0));
   const netoM=meses6.map((_,i)=>ingM[i]-gsM[i]);
-  const nochesM=meses6.map(d=>rv.filter(r=>r.est!=='Próxima'&&fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.noches,0));
+  const nochesM=meses6.map(d=>rv.filter(r=>fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.noches,0));
   const ocupM=meses6.map((d,i)=>Math.round(nochesM[i]/diasEnMes(d)*100));
   const adrM=meses6.map((_,i)=>nochesM[i]>0?Math.round(ingM[i]/nochesM[i]):0);
 
