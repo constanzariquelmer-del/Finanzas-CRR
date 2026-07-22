@@ -60,8 +60,8 @@ table{width:100%;font-size:12px;border-collapse:collapse}
 th{font-size:10px;font-weight:600;color:var(--text2);padding:5px 6px;border-bottom:0.5px solid var(--border);text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
 td{padding:8px 6px;border-bottom:0.5px solid var(--border);color:var(--text);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tr.done td{opacity:.4}
-tr.done td:first-child{text-decoration:line-through}
+tr.done td{opacity:.6}
+tr.done td:first-child strong,tr.done td:first-child{font-weight:400}
 .bdg{display:inline-flex;align-items:center;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:600;white-space:nowrap}
 .bg{background:var(--green-bg);color:var(--green-tx)}
 .ba{background:var(--amber-bg);color:var(--amber-tx)}
@@ -166,7 +166,10 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="sec" id="sec-ingresos">
   <div class="shdr">
     <span class="stitle">Ingresos</span>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="chkOcultarCobrados" onchange="toggleOcultarCobrados()">Ocultar cobrados
+      </label>
       <button class="abtn" onclick="abrirM('mSueldo')">+ Sueldo</button>
       <button class="abtn" onclick="abrirM('mHon')">+ Honorario</button>
       <button class="abtn" onclick="abrirM('mOtroIng')">+ Otro</button>
@@ -174,6 +177,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   </div>
   <div style="background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--r);padding:8px 12px;margin-bottom:.8rem;font-size:11px;font-weight:500">Los ingresos Airbnb se gestionan en Depto 320 y Vista Ñielol — no aparecen aquí salvo que los traspases manualmente.</div>
   <div class="mets" id="ing-mets"></div>
+  <div id="ing-progress"></div>
   <div class="card">
     <div class="chdr">Sueldo <span id="c-su" class="bdg ba"></span></div>
     <div class="ow"><table><thead><tr><th style="width:35%">Descripción</th><th style="width:20%">Fecha</th><th style="width:20%;text-align:right">Monto</th><th style="width:25%;text-align:center">Acción</th></tr></thead><tbody id="t-su"></tbody></table></div>
@@ -459,6 +463,9 @@ function nxt(){return nid++;}
 let sueldos=[{id:1,nombre:'Sueldo trabajo dependiente',emp:'Empleador',monto:1650000,fecha:'2026-05-25',percibido:false}];
 let honorarios=[];
 let otrosIng=[];
+let hideCobrados=false;
+function toggleOcultarCobrados(){hideCobrados=document.getElementById('chkOcultarCobrados').checked;renderIngresos();}
+function ordenPend(a,b){return(a.percibido===b.percibido)?0:(a.percibido?1:-1);}
 let obligaciones=[];
 let rvD1=[
   {id:40,hues:'Carlos M.',entrada:'01/05',salida:'05/05',noches:4,plat:'Airbnb',est:'Completada',monto:560000},
@@ -601,9 +608,9 @@ function ambBdg(a){
 
 // ── INGRESOS ──────────────────────────────────────────────
 function renderIngresos(){
-  const suF=sueldos.filter(x=>fechaEnMes(x.fecha));
-  const honF=honorarios.filter(x=>fechaEnMes(x.fecha));
-  const otF=otrosIng.filter(x=>fechaEnMes(x.fecha));
+  const suF=sueldos.filter(x=>fechaEnMes(x.fecha)).slice().sort(ordenPend);
+  const honF=honorarios.filter(x=>fechaEnMes(x.fecha)).slice().sort(ordenPend);
+  const otF=otrosIng.filter(x=>fechaEnMes(x.fecha)).slice().sort(ordenPend);
   const tSu=suF.reduce((a,x)=>a+x.monto,0);
   const tHon=honF.reduce((a,x)=>a+x.monto,0);
   const tOt=otF.reduce((a,x)=>a+x.monto,0);
@@ -611,6 +618,7 @@ function renderIngresos(){
     +honF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0)
     +otF.filter(x=>x.percibido).reduce((a,x)=>a+x.monto,0);
   const total=tSu+tHon+tOt;
+  const pIng=total?Math.round(perc/total*100):0;
   document.getElementById('c-su').textContent=suF.filter(x=>!x.percibido).length+' pend.';
   document.getElementById('c-hon').textContent=honF.filter(x=>!x.percibido).length+' pend.';
   document.getElementById('c-ot').textContent=otF.filter(x=>!x.percibido).length+' pend.';
@@ -619,17 +627,23 @@ function renderIngresos(){
     <div class="met"><div class="ml">Ya percibido</div><div class="mv pos">${cl(perc)}</div></div>
     <div class="met"><div class="ml">Por percibir</div><div class="mv amb">${cl(total-perc)}</div></div>
     <div class="met"><div class="ml">Honorarios</div><div class="mv">${cl(tHon)}</div><div class="ms">${honF.length} clientes</div></div>`;
-  document.getElementById('t-su').innerHTML=suF.map(s=>`<tr class="${s.percibido?'done':''}">
-    <td>${s.nombre||s.desc||''}<span style="color:var(--text3);font-size:10px"> ${s.emp||''}</span></td>
+  document.getElementById('ing-progress').innerHTML=
+    `<div class="pr"><div class="prh"><span>Percibido este mes</span><span>${pIng}% — ${cl(perc)} de ${cl(total)}</span></div><div class="pb"><div class="pf" style="width:${pIng}%;background:#1A8C68"></div></div></div>`;
+  const suShown=hideCobrados?suF.filter(x=>!x.percibido):suF;
+  const suOcultos=suF.length-suShown.length;
+  document.getElementById('t-su').innerHTML=suShown.map(s=>`<tr class="${s.percibido?'done':''}">
+    <td>${s.percibido?'<span style="color:#1A8C68;margin-right:4px">✓</span>':''}${s.nombre||s.desc||''}<span style="color:var(--text3);font-size:10px"> ${s.emp||''}</span></td>
     <td>${s.fecha||''}</td>
     <td style="text-align:right;font-weight:600" class="${s.percibido?'pos':'amb'}">${cl(s.monto)}</td>
     <td style="text-align:center;display:flex;gap:4px;justify-content:center">
       ${s.percibido?'<span class="bdg bg">✓ Percibido</span>':'<button class="cbtn" onclick="marcarIng(\'su\','+s.id+')">✓ Percibido</button>'}
       <button class="ibtn" onclick="editarSu(${s.id})">✏</button>
       <button class="ibtn" onclick="eliminarSu(${s.id})">✕</button>
-    </td></tr>`).join('');
-  document.getElementById('t-hon').innerHTML=honF.map(h=>`<tr class="${h.percibido?'done':''}">
-    <td><strong>${h.cliente}</strong></td>
+    </td></tr>`).join('')+(suOcultos>0?`<tr><td colspan="4" style="text-align:center;font-size:11px;color:var(--text3);padding:6px">${suOcultos} cobrado(s) oculto(s)</td></tr>`:'');
+  const honShown=hideCobrados?honF.filter(x=>!x.percibido):honF;
+  const honOcultos=honF.length-honShown.length;
+  document.getElementById('t-hon').innerHTML=honShown.map(h=>`<tr class="${h.percibido?'done':''}">
+    <td>${h.percibido?'<span style="color:#1A8C68;margin-right:4px">✓</span>':''}<strong>${h.cliente}</strong></td>
     <td style="color:var(--text2);font-size:11px">${h.concepto}</td>
     <td>${h.fecha||''}</td>
     <td style="text-align:right;font-weight:600" class="${h.percibido?'pos':'amb'}">${cl(h.monto)}</td>
@@ -638,13 +652,15 @@ function renderIngresos(){
       ${h.percibido?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'hon\','+h.id+')">✓ Cobrado</button>'}
       <button class="ibtn" onclick="editarHon(${h.id})">✏</button>
       <button class="ibtn" onclick="eliminarHon(${h.id})">✕</button>
-    </td></tr>`).join('');
-  document.getElementById('t-ot').innerHTML=otF.map(o=>`<tr class="${o.percibido?'done':''}">
-    <td>${o.nombre||o.desc||''}</td>
+    </td></tr>`).join('')+(honOcultos>0?`<tr><td colspan="6" style="text-align:center;font-size:11px;color:var(--text3);padding:6px">${honOcultos} cobrado(s) oculto(s)</td></tr>`:'');
+  const otShown=hideCobrados?otF.filter(x=>!x.percibido):otF;
+  const otOcultos=otF.length-otShown.length;
+  document.getElementById('t-ot').innerHTML=otShown.map(o=>`<tr class="${o.percibido?'done':''}">
+    <td>${o.percibido?'<span style="color:#1A8C68;margin-right:4px">✓</span>':''}${o.nombre||o.desc||''}</td>
     <td><span class="bdg bb">${o.tipo}</span></td>
     <td>${o.fecha||''}</td>
     <td style="text-align:right;font-weight:600" class="${o.percibido?'pos':'amb'}">${cl(o.monto)}</td>
-    <td style="text-align:center">${o.percibido?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'ot\','+o.id+')">✓ Percibido</button>'}</td></tr>`).join('');
+    <td style="text-align:center">${o.percibido?'<span class="bdg bg">✓</span>':'<button class="cbtn" onclick="marcarIng(\'ot\','+o.id+')">✓ Percibido</button>'}</td></tr>`).join('')+(otOcultos>0?`<tr><td colspan="5" style="text-align:center;font-size:11px;color:var(--text3);padding:6px">${otOcultos} cobrado(s) oculto(s)</td></tr>`:'');
 }
 function marcarIng(tipo,id){
   let it;
