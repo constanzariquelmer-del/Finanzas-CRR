@@ -351,11 +351,10 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   <input type="hidden" id="oe-id">
   <div class="fr"><div><div class="fl">Descripción</div><input id="oe-desc"></div><div><div class="fl">Categoría</div><select id="oe-cat"><option>Dividendo / hipoteca</option><option>Tarjeta de crédito</option><option>Cuenta básica</option><option>Seguro</option><option>Educación</option><option>Gasto depto</option><option>Otro</option></select></div></div>
   <div class="fr"><div><div class="fl">Monto ($)</div><input type="number" id="oe-monto"></div><div><div class="fl">Vencimiento</div><input type="date" id="oe-fecha"></div></div>
- <div class="fr"><div><div class="fl">Recurrencia</div><select id="oe-rec"><option>Mensual</option><option>Única vez</option><option>Bimestral</option></select></div><div><div class="fl">Cuotas rest.</div><input type="number" id="oe-cuotas"></div></div>
+  <div class="fr"><div><div class="fl">Recurrencia</div><select id="oe-rec"><option>Mensual</option><option>Única vez</option><option>Bimestral</option></select></div><div><div class="fl">Cuotas rest.</div><input type="number" id="oe-cuotas"></div></div>
   <div class="fr1"><div class="fl">Ámbito</div><select id="oe-amb"><option value="personal">Personal</option><option value="depto320">Depto 320</option><option value="nielol">Vista Ñielol</option></select></div>
-  <div class="mact">
   <div class="mact"><button class="btc" onclick="cerrarM('mObEdit')">Cancelar</button><button class="btp" onclick="gObEdit()">Guardar</button></div>
-</div></div></div>
+</div></div>
 
 <div class="overlay" id="mAbono"><div class="modal"><h3>Registrar abono</h3>
   <input type="hidden" id="ab-id">
@@ -409,6 +408,12 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   <div class="fr"><div><div class="fl">Fecha</div><input type="date" id="hi-fecha"></div><div><div class="fl">Tipo</div><select id="hi-tipo"><option value="meta">Meta de ahorro</option><option value="termino">Término de deuda</option><option value="evento">Evento financiero</option><option value="inversion">Inversión</option></select></div></div>
   <div class="fr1"><div class="fl">Descripción</div><input id="hi-det" placeholder="Cuota final $271.205/mes liberada"></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mHito')">Cancelar</button><button class="btp" onclick="gHito()">Guardar</button></div>
+</div></div>
+
+<div class="overlay" id="mCopiar"><div class="modal" style="width:520px"><h3 id="cp-title">Copiar ingresos</h3>
+  <div style="font-size:11px;color:var(--text2);margin-bottom:.4rem">Desmarca los que no se repiten este mes y ajusta el monto si cambió.</div>
+  <div id="cp-lista"></div>
+  <div class="mact"><button class="btc" onclick="cerrarM('mCopiar')">Cancelar</button><button class="btp" onclick="gCopiarMes()">Copiar seleccionados</button></div>
 </div></div>
 
 <div id="toast"></div>
@@ -740,6 +745,59 @@ function gOtroIng(){
   ['oi-desc','oi-monto','oi-fecha'].forEach(i=>document.getElementById(i).value='');
 }
 
+// ── COPIAR INGRESOS DEL MES ANTERIOR ──────────────────────
+let cpItems=[];
+// Lleva una fecha al mes seleccionado conservando el día (ajusta si el mes tiene menos días)
+function moverFecha(fecha){
+  let dia=1;
+  if(fecha&&/^\d{4}-\d{2}-\d{2}/.test(fecha))dia=parseInt(fecha.slice(8,10),10);
+  dia=Math.min(dia,diasEnMes(mesActual));
+  return mesActual.getFullYear()+'-'+String(mesActual.getMonth()+1).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
+}
+function abrirCopiarMes(){
+  const prev=new Date(mesActual.getFullYear(),mesActual.getMonth()-1,1);
+  const key=x=>(x.cliente||x.nombre||x.desc||'').trim().toLowerCase();
+  const yaEsta=(arr,x)=>arr.some(y=>fechaCoincideConMes(y.fecha,mesActual)&&key(y)===key(x));
+  const noAuto=['Variable / esporádico','Traspaso Airbnb'];
+  cpItems=[];
+  sueldos.filter(x=>fechaCoincideConMes(x.fecha,prev)&&!yaEsta(sueldos,x)).forEach(x=>cpItems.push({tabla:'su',src:x,sel:true,monto:x.monto}));
+  honorarios.filter(x=>fechaCoincideConMes(x.fecha,prev)&&!yaEsta(honorarios,x)).forEach(x=>cpItems.push({tabla:'hon',src:x,sel:true,monto:x.monto}));
+  otrosIng.filter(x=>fechaCoincideConMes(x.fecha,prev)&&!yaEsta(otrosIng,x)).forEach(x=>cpItems.push({tabla:'ot',src:x,sel:!noAuto.includes(x.tipo),monto:x.monto}));
+  if(!cpItems.length){toast('No hay ingresos nuevos para copiar desde '+MESES[prev.getMonth()]);return;}
+  document.getElementById('cp-title').textContent='Copiar desde '+MESES[prev.getMonth()]+' a '+MESES[mesActual.getMonth()];
+  const grupos={su:'Sueldo',hon:'Honorarios',ot:'Otros ingresos'};
+  let html='';
+  ['su','hon','ot'].forEach(t=>{
+    const its=cpItems.map((c,i)=>({c,i})).filter(o=>o.c.tabla===t);
+    if(!its.length)return;
+    html+=`<div class="fl" style="margin:10px 0 4px">${grupos[t]}</div>`+its.map(({c,i})=>{
+      const s=c.src;
+      const lbl=t==='hon'
+        ?`<strong>${s.cliente}</strong> <span style="color:var(--text3)">${s.concepto||''}</span>`
+        :(s.nombre||s.desc||'')+(t==='ot'?` <span class="bdg bb">${s.tipo}</span>`:'');
+      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+        <input type="checkbox" style="width:auto" ${c.sel?'checked':''} onchange="cpItems[${i}].sel=this.checked">
+        <span style="flex:1">${lbl}</span>
+        <span style="color:var(--text3);font-size:11px;white-space:nowrap">día ${moverFecha(s.fecha).slice(8)}</span>
+        <input type="number" value="${c.monto}" style="width:110px" onchange="cpItems[${i}].monto=parseInt(this.value)||0">
+      </div>`;
+    }).join('');
+  });
+  document.getElementById('cp-lista').innerHTML=html;
+  abrirM('mCopiar');
+}
+function gCopiarMes(){
+  let n=0;
+  cpItems.filter(c=>c.sel&&c.monto>0).forEach(c=>{
+    const s=c.src,fecha=moverFecha(s.fecha),monto=c.monto;
+    if(c.tabla==='su'){const it={id:nxt(),nombre:s.nombre||s.desc||'Sueldo',emp:s.emp||'',monto,fecha,percibido:false};sueldos.push(it);dbSet('sueldos',it);}
+    else if(c.tabla==='hon'){const it={id:nxt(),cliente:s.cliente,concepto:s.concepto||'',monto,fecha,boleta:'',percibido:false};honorarios.push(it);dbSet('honorarios',it);}
+    else{const it={id:nxt(),nombre:s.nombre||s.desc||'',tipo:s.tipo,monto,fecha,percibido:false};otrosIng.push(it);dbSet('otros_ingresos',it);}
+    n++;
+  });
+  cerrarM('mCopiar');renderIngresos();renderResumen();toast('✓ '+n+' ingresos copiados');
+}
+
 // ── OBLIGACIONES ──────────────────────────────────────────
 function filtrarOb(tab,btn){
   obTab=tab;
@@ -752,9 +810,7 @@ function renderObligaciones(){
   const fil=base;
   const pend=fil.filter(o=>!o.pagado);
   const pag=fil.filter(o=>o.pagado);
-  const tP=obligaciones.filter(o=>!o.pagado).reduce((a,o)=>a+o.monto,0);
-  const tD=obligaciones.filter(o=>o.pagado).reduce((a,o)=>a+o.monto,0);
- const tPend=pend.reduce((a,o)=>a+o.monto,0);
+  const tPend=pend.reduce((a,o)=>a+o.monto,0);
   const tPag2=pag.reduce((a,o)=>a+o.monto,0);
   const tAbon=pend.reduce((a,o)=>a+(o.abonado||0),0);
   document.getElementById('ob-pc').textContent=pend.length+' — '+cl(tPend);
@@ -788,7 +844,7 @@ function renderObligaciones(){
   document.getElementById('t-ob-d').innerHTML=row(pag);
 }
 function marcarPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=true;dbSet('obligaciones',o);renderObligaciones();renderResumen();toast('✓ Marcado como pagado');}
-  function revertirPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=false;dbSet('obligaciones',{...o});renderObligaciones();renderResumen();toast('↩ Revertido a pendiente');}
+function revertirPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=false;dbSet('obligaciones',{...o});renderObligaciones();renderResumen();toast('↩ Revertido a pendiente');}
 function abrirAbono(id){
   const o=obligaciones.find(x=>x.id===id);
   const abonado=o.abonado||0;
@@ -843,7 +899,7 @@ function editarOb(id){
   for(let i=0;i<cs.length;i++)if(cs[i].text===o.cat)cs[i].selected=true;
   const rs=document.getElementById('oe-rec').options;
   for(let i=0;i<rs.length;i++)if(rs[i].text===o.rec)rs[i].selected=true;
- const as=document.getElementById('oe-amb').options;
+  const as=document.getElementById('oe-amb').options;
   for(let i=0;i<as.length;i++)if(as[i].value===o.ambito)as[i].selected=true;
   abrirM('mObEdit');
 }
@@ -855,7 +911,7 @@ function gObEdit(){
   o.monto=parseInt(document.getElementById('oe-monto').value)||o.monto;
   o.fecha=document.getElementById('oe-fecha').value||o.fecha;
   o.rec=document.getElementById('oe-rec').value;
- o.cuotas=parseInt(document.getElementById('oe-cuotas').value)||0;
+  o.cuotas=parseInt(document.getElementById('oe-cuotas').value)||0;
   o.ambito=document.getElementById('oe-amb').value;
   dbSet('obligaciones',o);renderObligaciones();renderResumen();cerrarM('mObEdit');
 }
@@ -1116,12 +1172,15 @@ function getMeses(n){
   return Array.from({length:n},(_,i)=>{const d=new Date(base.getFullYear(),base.getMonth()+i,1);return{label:ms[d.getMonth()]+' '+String(d.getFullYear()).slice(2),date:d};});
 }
 function calcProj(){
-  const tI=sueldos.reduce((a,x)=>a+x.monto,0)+honorarios.reduce((a,x)=>a+x.monto,0)+otrosIng.reduce((a,x)=>a+x.monto,0);
+  // Base de la proyección: ingresos y obligaciones del mes en curso (no la suma de todo el historial)
+  const hoy=new Date(),mRef=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  const enRef=x=>fechaCoincideConMes(x.fecha,mRef);
+  const tI=sueldos.filter(enRef).reduce((a,x)=>a+x.monto,0)+honorarios.filter(enRef).reduce((a,x)=>a+x.monto,0)+otrosIng.filter(enRef).reduce((a,x)=>a+x.monto,0);
   const meses=getMeses(24);
   let acum=ahorros.reduce((a,x)=>a+x.actual,0);
   return meses.map((m,i)=>{
     const eg=obligaciones.filter(o=>{
-      if(o.ambito!=='personal')return false;
+      if(o.ambito!=='personal'||!enRef(o))return false;
       if(o.cuotas>0&&i>=o.cuotas)return false;
       return true;
     }).reduce((a,o)=>a+o.monto,0);
@@ -1141,7 +1200,7 @@ function renderProyeccion(){
     <div class="met"><div class="ml">Deudas con plazo</div><div class="mv">${obligaciones.filter(o=>o.cuotas>0).length}</div></div>
     <div class="met"><div class="ml">Acumulado a 24m</div><div class="mv">${cl(rows[23].acum)}</div></div>`;
   document.getElementById('proj-cards').innerHTML=rows.map(r=>{
-    const pct=Math.min(100,Math.round(r.eg/r.ing*100));
+    const pct=r.ing>0?Math.min(100,Math.round(r.eg/r.ing*100)):0;
     const col=r.flujo>=800000?'var(--green)':r.flujo>=400000?'var(--amber)':'var(--red)';
     const termStr=r.term.length?`<div style="font-size:10px;color:var(--green);font-weight:600;margin-top:4px">✓ Termina: ${r.term.map(o=>(o.nombre||o.desc||'').split(' ').slice(0,2).join(' ')).join(', ')}</div>`:'';
     return`<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:10px 12px;border-top:2px solid ${col}">
