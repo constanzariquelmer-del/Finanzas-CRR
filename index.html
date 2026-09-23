@@ -116,6 +116,16 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 .legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--text2)}
 .ld{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:3px}
 .banner{background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--r);padding:7px 12px;margin-bottom:1rem;font-size:12px;font-weight:500;display:none}
+.obc-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:2px;margin-bottom:12px;background:var(--surface2)}
+.obc-bar div{height:100%}
+.obc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 24px}
+.obc-row{display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0}
+.obc-nom{flex:1}
+.obc-pag{font-size:10px;color:var(--green)}
+.obc-pct{font-size:11px;color:var(--text2);width:36px;text-align:right}
+.obc-monto{font-weight:600;width:90px;text-align:right}
+tr.grp td{background:var(--surface2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);padding:5px 8px}
+tr.grp td span{float:right;text-transform:none;letter-spacing:0;font-weight:500}
 </style>
 </head>
 <body>
@@ -197,7 +207,13 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="sec" id="sec-obligaciones">
   <div class="shdr">
     <span class="stitle">Obligaciones</span>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="abtn" onclick="abrirCopiarOb()">⟳ Copiar del mes anterior</button><button class="abtn" onclick="abrirM('mOb')">+ Agregar</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="chkAgruparSem" style="width:auto" onchange="renderObligaciones()">Agrupar por semana
+      </label>
+      <button class="abtn" onclick="abrirCopiarOb()">⟳ Copiar del mes anterior</button>
+      <button class="abtn" onclick="abrirM('mOb')">+ Agregar</button>
+    </div>
   </div>
   <div class="mets" id="ob-mets"></div>
   <div class="tabs" id="ob-tabs">
@@ -206,13 +222,17 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     <button class="tab" onclick="filtrarOb('nielol',this)">Vista Ñielol</button>
     <button class="tab" onclick="filtrarOb('todas',this)">Todas</button>
   </div>
+  <div class="card" id="ob-cats-card">
+    <div class="chdr">Por categoría <span id="ob-cats-tot" style="font-size:11px;font-weight:400;color:var(--text2)"></span></div>
+    <div id="ob-cats"></div>
+  </div>
   <div class="card">
     <div class="chdr">Pendientes <span id="ob-pc" class="bdg br"></span></div>
-    <div class="ow"><table><thead><tr><th style="width:22%">Descripción</th><th style="width:14%">Categoría</th><th style="width:11%">Vence</th><th style="width:12%;text-align:right">Monto</th><th style="width:8%">Recur.</th><th style="width:9%">Ámbito</th><th style="width:24%;text-align:center">Acción</th></tr></thead><tbody id="t-ob-p"></tbody></table></div>
+    <div class="ow"><table><thead><tr><th style="width:22%">Descripción</th><th style="width:14%">Categoría</th><th style="width:11%">Vence</th><th style="width:12%;text-align:right">Monto</th><th style="width:8%">Recur.</th><th class="col-amb" style="width:9%">Ámbito</th><th style="width:24%;text-align:center">Acción</th></tr></thead><tbody id="t-ob-p"></tbody></table></div>
   </div>
   <div class="card">
     <div class="chdr">Pagados <span id="ob-dc" class="bdg bg"></span></div>
-    <div class="ow"><table><thead><tr><th style="width:22%">Descripción</th><th style="width:14%">Categoría</th><th style="width:11%">Fecha</th><th style="width:12%;text-align:right">Monto</th><th style="width:8%">Recur.</th><th style="width:9%">Ámbito</th><th style="width:24%;text-align:center">Estado</th></tr></thead><tbody id="t-ob-d"></tbody></table></div>
+    <div class="ow"><table><thead><tr><th style="width:22%">Descripción</th><th style="width:14%">Categoría</th><th style="width:11%">Fecha</th><th style="width:12%;text-align:right">Monto</th><th style="width:8%">Recur.</th><th class="col-amb" style="width:9%">Ámbito</th><th style="width:24%;text-align:center">Estado</th></tr></thead><tbody id="t-ob-d"></tbody></table></div>
   </div>
 </div>
 
@@ -809,14 +829,72 @@ function filtrarOb(tab,btn){
   btn.classList.add('active');
   renderObligaciones();
 }
+function catColor(c){
+  c=c||'Otro';
+  if(/ipoteca|ividendo/.test(c))return '#1A5FA8';
+  if(/Tarjeta/.test(c))return '#C94E2A';
+  if(/Educ/.test(c))return '#5040B0';
+  if(/Cuenta b/.test(c))return '#2A8BA8';
+  if(/Seguro/.test(c))return '#1A8C68';
+  if(/depto/.test(c))return '#6A6A65';
+  return '#A86A0A';
+}
+// Días desde hoy hasta la fecha (negativo = vencido). null si no hay fecha válida.
+function diasPara(fecha){
+  if(!fecha||!/^\d{4}-\d{2}-\d{2}/.test(fecha))return null;
+  const v=new Date(fecha.slice(0,10)+'T00:00:00');
+  if(isNaN(v))return null;
+  const h=new Date();h.setHours(0,0,0,0);
+  return Math.round((v-h)/86400000);
+}
+// Orden: fecha de vencimiento ascendente; mismo día → mayor monto primero
+function ordenFecha(a,b){
+  const fa=a.fecha||'9999',fb=b.fecha||'9999';
+  if(fa!==fb)return fa<fb?-1:1;
+  return b.monto-a.monto;
+}
+function semanaDe(fecha){
+  if(!fecha||!/^\d{4}-\d{2}-\d{2}/.test(fecha))return 5;
+  const d=parseInt(fecha.slice(8,10),10);
+  return d<=7?1:d<=14?2:d<=21?3:4;
+}
+function renderObCats(fil){
+  const card=document.getElementById('ob-cats-card');
+  const porCat={};
+  fil.forEach(o=>{
+    const c=o.cat||'Otro';
+    if(!porCat[c])porCat[c]={tot:0,pag:0,n:0};
+    porCat[c].tot+=o.monto;porCat[c].pag+=pagadoOb(o);porCat[c].n++;
+  });
+  const entries=Object.entries(porCat).sort((a,b)=>b[1].tot-a[1].tot);
+  if(!entries.length){card.style.display='none';return;}
+  card.style.display='';
+  const total=entries.reduce((a,e)=>a+e[1].tot,0);
+  document.getElementById('ob-cats-tot').textContent=cl(total)+' en '+entries.length+' categorías';
+  const barra=`<div class="obc-bar">${entries.map(([c,v])=>`<div title="${c}: ${cl(v.tot)}" style="width:${total>0?v.tot/total*100:0}%;background:${catColor(c)}"></div>`).join('')}</div>`;
+  const filas=entries.map(([c,v])=>{
+    const pct=total>0?Math.round(v.tot/total*100):0;
+    const pPag=v.tot>0?Math.round(v.pag/v.tot*100):0;
+    return`<div class="obc-row"><span class="ld" style="background:${catColor(c)}"></span>
+      <span class="obc-nom">${c} <span style="color:var(--text3)">· ${v.n}</span></span>
+      <span class="obc-pag">${pPag>0?pPag+'% pagado':''}</span>
+      <span class="obc-pct">${pct}%</span>
+      <span class="obc-monto">${cl(v.tot)}</span></div>`;
+  }).join('');
+  document.getElementById('ob-cats').innerHTML=barra+`<div class="obc-grid">${filas}</div>`;
+}
 function renderObligaciones(){
-  const base=(obTab==='todas'?obligaciones:obligaciones.filter(o=>o.ambito===obTab)).filter(o=>fechaEnMes(o.fecha));
-  const fil=base;
-  const pend=fil.filter(o=>!o.pagado);
-  const pag=fil.filter(o=>o.pagado);
+  const fil=(obTab==='todas'?obligaciones:obligaciones.filter(o=>o.ambito===obTab)).filter(o=>fechaEnMes(o.fecha));
+  const pend=fil.filter(o=>!o.pagado).sort(ordenFecha);
+  const pag=fil.filter(o=>o.pagado).sort(ordenFecha);
   const tPend=pend.reduce((a,o)=>a+o.monto,0);
   const tPag2=pag.reduce((a,o)=>a+o.monto,0);
   const tAbon=pend.reduce((a,o)=>a+(o.abonado||0),0);
+  const verAmb=obTab==='todas';
+  const ncol=verAmb?7:6;
+  const chk=document.getElementById('chkAgruparSem');
+  const agrupar=chk?chk.checked:false;
+  document.querySelectorAll('#sec-obligaciones th.col-amb').forEach(th=>th.style.display=verAmb?'':'none');
   document.getElementById('ob-pc').textContent=pend.length+' — '+cl(tPend);
   document.getElementById('ob-dc').textContent=pag.length+' — '+cl(tPag2);
   document.getElementById('ob-mets').innerHTML=`
@@ -825,27 +903,45 @@ function renderObligaciones(){
     <div class="met"><div class="ml">Total filtro</div><div class="mv">${cl(tPend+tPag2)}</div></div>
     <div class="met"><div class="ml">% pagado</div><div class="mv">${Math.round(tPag2/(tPend+tPag2)*100)||0}%</div></div>
     <div class="met"><div class="ml">Abonado (pend.)</div><div class="mv amb">${cl(tAbon)}</div><div class="ms">${pend.filter(o=>(o.abonado||0)>0).length} en curso</div></div>`;
-  const now=new Date();
-  const row=arr=>arr.map(o=>{
-    const v=new Date((o.fecha||'').replace(/\//g,'-')+'T00:00:00');
-    const urg=!o.pagado&&v<now;
+  renderObCats(fil);
+  const fila=o=>{
+    const dd=diasPara(o.fecha);
+    const venc=!o.pagado&&dd!==null&&dd<0;
+    const pronto=!o.pagado&&dd!==null&&dd>=0&&dd<=3;
+    const urg=venc||pronto;
+    const hint=venc?' ⚠':pronto?(dd===0?' · hoy':' · en '+dd+'d'):'';
     const ab=o.abonado||0;
     const pct=ab>0?Math.min(100,Math.round(ab/o.monto*100)):0;
     return`<tr class="${o.pagado?'done':''}">
-      <td>${o.nombre||o.desc||''}</td><td>${catBdg(o.cat)}</td>
-      <td style="color:${urg?'var(--red)':'var(--text2)'};font-size:11px">${o.fecha||''}${urg?' ⚠':''}</td>
-      <td style="text-align:right;font-weight:600" class="${o.pagado?'pos':'neg'}">${cl(o.monto)}
+      <td>${o.nombre||o.desc||''}</td><td>${catBdg(o.cat||'Otro')}</td>
+      <td style="color:${urg?'var(--red)':'var(--text2)'};font-size:11px;font-weight:${urg?600:400};white-space:nowrap">${o.fecha||''}${hint}</td>
+      <td style="text-align:right;font-weight:600" class="${o.pagado?'pos':urg?'neg':''}">${cl(o.monto)}
         ${!o.pagado&&ab>0?`<div style="font-size:9px;font-weight:400;color:var(--text2);margin-top:3px;white-space:nowrap">Abonado ${cl(ab)} · Saldo ${cl(o.monto-ab)}</div><div class="pb" style="margin-top:3px"><div class="pf" style="width:${pct}%;background:var(--blue)"></div></div>`:''}
       </td>
       <td><span class="bdg ba" style="font-size:9px">${o.rec||''}</span></td>
-      <td>${ambBdg(o.ambito)}</td>
+      ${verAmb?`<td>${ambBdg(o.ambito)}</td>`:''}
       <td style="text-align:center;display:flex;gap:3px;justify-content:center;flex-wrap:wrap">
         ${o.pagado?'<button class="cbtn" onclick="revertirPag('+o.id+')" style="background:var(--green-bg);color:var(--green-tx);border-color:transparent">✓ Pagado</button>':'<button class="cbtn" onclick="marcarPag('+o.id+')">✓ Pagar</button><button class="abtn" style="padding:5px 8px" onclick="abrirAbono('+o.id+')">+ Abono</button>'}
         <button class="ibtn" onclick="editarOb(${o.id})">✏</button>
       </td></tr>`;
-  }).join('');
-  document.getElementById('t-ob-p').innerHTML=row(pend);
-  document.getElementById('t-ob-d').innerHTML=row(pag);
+  };
+  const SEM={1:'Días 1–7',2:'Días 8–14',3:'Días 15–21',4:'Día 22 a fin de mes',5:'Sin fecha'};
+  const tabla=arr=>{
+    if(!agrupar)return arr.map(fila).join('');
+    let html='',cur=null;
+    arr.forEach(o=>{
+      const s=semanaDe(o.fecha);
+      if(s!==cur){
+        cur=s;
+        const grp=arr.filter(x=>semanaDe(x.fecha)===s);
+        html+=`<tr class="grp"><td colspan="${ncol}">${SEM[s]} <span>${grp.length} · ${cl(grp.reduce((a,x)=>a+x.monto,0))}</span></td></tr>`;
+      }
+      html+=fila(o);
+    });
+    return html;
+  };
+  document.getElementById('t-ob-p').innerHTML=tabla(pend);
+  document.getElementById('t-ob-d').innerHTML=tabla(pag);
 }
 function marcarPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=true;dbSet('obligaciones',o);renderObligaciones();renderResumen();toast('✓ Marcado como pagado');}
 function revertirPag(id){const o=obligaciones.find(x=>x.id===id);o.pagado=false;dbSet('obligaciones',{...o});renderObligaciones();renderResumen();toast('↩ Revertido a pendiente');}
