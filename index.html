@@ -267,7 +267,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   <div class="shdr"><span class="stitle">Ahorro e inversiones</span><button class="abtn" onclick="abrirM('mAh')">+ Agregar instrumento</button></div>
   <div id="ahorro-hero"></div>
   <div class="two">
-    <div class="card"><div class="chdr">Evolución</div><div class="chwrap"><canvas id="cAh"></canvas></div></div>
+    <div class="card"><div class="chdr">Proyección de ahorro — 12 meses<div class="legend" style="margin-left:8px"><span><span class="ld" style="background:#1A8C68"></span>Acumulado</span><span><span class="ld" style="background:#1A5FA8"></span>Ahorro del mes</span></div></div><div class="chwrap"><canvas id="cAh"></canvas></div></div>
     <div class="card"><div class="chdr">Portafolio</div><div class="chwrap"><canvas id="cPort"></canvas></div></div>
   </div>
   <div class="card"><div class="chdr">Instrumentos</div><div class="ow"><table><thead><tr><th style="width:28%">Nombre</th><th style="width:16%">Tipo</th><th style="width:16%;text-align:right">Aportado</th><th style="width:16%;text-align:right">Actual</th><th style="width:12%;text-align:right">Rentab.</th><th style="width:12%;text-align:center">Acción</th></tr></thead><tbody id="t-ah"></tbody></table></div></div>
@@ -277,7 +277,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="sec" id="sec-presupuesto">
   <div class="shdr"><span class="stitle">Presupuesto mensual</span><button class="abtn" onclick="abrirM('mPres')">+ Editar categoría</button></div>
   <div class="mets" id="pres-mets"></div>
-  <div class="card"><div class="chdr">Seguimiento</div><div id="pres-cats"></div></div>
+  <div class="card"><div class="chdr">Seguimiento del mes <span style="font-size:11px;font-weight:400;color:var(--text2)">según obligaciones personales pagadas o abonadas</span></div><div id="pres-cats"></div></div>
   <div class="card"><div class="chdr">Comparativa<div class="legend" style="margin-left:8px"><span><span class="ld" style="background:#1A5FA8"></span>Presup.</span><span><span class="ld" style="background:#1A8C68"></span>Ejecutado</span></div></div><div style="position:relative;height:280px"><canvas id="cPres"></canvas></div></div>
 </div>
 
@@ -399,7 +399,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 
 <div class="overlay" id="mPres"><div class="modal"><h3>Categoría de presupuesto</h3>
   <div class="fr"><div><div class="fl">Categoría</div><input id="p-nom" placeholder="Alimentación"></div><div><div class="fl">Presupuesto ($)</div><input type="number" id="p-pres"></div></div>
-  <div class="fr1"><div class="fl">Gasto actual ($)</div><input type="number" id="p-act"></div>
+  <div style="font-size:11px;color:var(--text2);margin-bottom:7px">El gasto ejecutado se calcula solo cada mes con las obligaciones personales pagadas o abonadas.</div>
   <div class="mact"><button class="btc" onclick="cerrarM('mPres')">Cancelar</button><button class="btp" onclick="gPres()">Guardar</button></div>
 </div></div>
 
@@ -465,7 +465,7 @@ async function cargarTodo(){
   if(ah&&ah.length)ahorros=ah;
   if(pr&&pr.length)presupuesto=pr;
   if(hi&&hi.length)hitos=hi;
-  renderAll();toast('Datos cargados ☁️');
+  renderAll();refrescarGraficos();toast('Datos cargados ☁️');
 }
 
 // ── DATOS ─────────────────────────────────────────────────
@@ -557,11 +557,12 @@ function fechaCoincideConMes(fecha,d){
   if(/^\d{1,2}\/\d{1,2}$/.test(fecha))return parseInt(fecha.split('/')[1],10)-1===d.getMonth();
   return false;
 }
-// Array de los últimos n meses (Date, día 1), terminando en el mes actual real.
+// Array de los últimos n meses (Date, día 1), terminando en el mes seleccionado.
 function ultimosMeses(n){
-  const hoy=new Date();
-  return Array.from({length:n},(_,i)=>new Date(hoy.getFullYear(),hoy.getMonth()-(n-1)+i,1));
+  return Array.from({length:n},(_,i)=>new Date(mesActual.getFullYear(),mesActual.getMonth()-(n-1)+i,1));
 }
+// Monto efectivamente pagado de una obligación (total si está pagada, si no lo abonado)
+function pagadoOb(o){return o.pagado?o.monto:(o.abonado||0);}
 function diasEnMes(d){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate();}
 function lblMes(d){return MESES[d.getMonth()].slice(0,3)+' '+String(d.getFullYear()).slice(-2);}
 function toast(msg){
@@ -593,11 +594,8 @@ function navMes(d){
   if(fut){ban.style.display='block';ban.textContent='Período futuro — mostrando proyección basada en datos actuales';}
   else if(pas){ban.style.display='block';ban.textContent='Período histórico — '+label;}
   else ban.style.display='none';
-  renderIngresos();renderObligaciones();renderDeptos();renderResumen();
-  const activeSec=document.querySelector('.sec.active');
-  if(activeSec&&(activeSec.id==='sec-depto320'||activeSec.id==='sec-nielol'||activeSec.id==='sec-resumen')){
-    initChart(activeSec.id.replace('sec-',''));
-  }
+  renderIngresos();renderObligaciones();renderDeptos();renderPresupuesto();renderResumen();
+  refrescarGraficos();
 }
 
 function estBdg(e){
@@ -1146,30 +1144,57 @@ function gAhEdit(){
 }
 
 // ── PRESUPUESTO ───────────────────────────────────────────
+// Asigna cada obligación personal a una categoría del presupuesto según su categoría y nombre
+function catPresDe(o){
+  const t=((o.cat||'')+' '+(o.nombre||o.desc||'')).toLowerCase();
+  if(/hipoteca|dividendo/.test(t))return 'dividendo';
+  if(/tarjeta|\btc\b/.test(t))return 'tarjeta';
+  if(/educ|colegio|jard|sala cuna|matr[ií]cula/.test(t))return 'educ';
+  if(/\bauto|combust|bencina|autopista|\btag\b|estacionam|veh[ií]cul/.test(t))return 'auto';
+  if(/asesora|nana/.test(t))return 'asesora';
+  if(/aliment|supermerc|feria/.test(t))return 'aliment';
+  if(/cuenta b[aá]sica|servicio|\bluz\b|\bagua\b|\bgas\b|internet|electric|celular|tel[eé]f/.test(t))return 'servicio';
+  return 'otro';
+}
+// Presupuesto del mes seleccionado: ejecutado = obligaciones personales pagadas/abonadas en el mes
+function presupuestoMes(){
+  const cats=presupuesto.map(c=>({...c,ejec:0,items:[]}));
+  const buscar=clave=>cats.find(c=>{const n=(c.nom||'').toLowerCase();
+    return clave==='dividendo'?/hipoteca|dividendo/.test(n):clave==='tarjeta'?/tarjeta/.test(n):clave==='educ'?/educ/.test(n):
+      clave==='auto'?/auto|combust/.test(n):clave==='asesora'?/asesora/.test(n):clave==='aliment'?/aliment/.test(n):
+      clave==='servicio'?/servicio/.test(n):/^otro/.test(n);})||cats.find(c=>/^otro/.test((c.nom||'').toLowerCase()));
+  let sinCat=0;
+  obligaciones.filter(o=>o.ambito==='personal'&&fechaEnMes(o.fecha)).forEach(o=>{
+    const m=pagadoOb(o);if(m<=0)return;
+    const c=buscar(catPresDe(o));
+    if(c){c.ejec+=m;c.items.push(o.nombre||o.desc||'');}else sinCat+=m;
+  });
+  return{cats,sinCat,tPres:cats.reduce((a,c)=>a+(c.pres||0),0),tEjec:cats.reduce((a,c)=>a+c.ejec,0)+sinCat};
+}
 function renderPresupuesto(){
-  const tP=presupuesto.reduce((a,c)=>a+c.pres,0);
-  const tA=presupuesto.reduce((a,c)=>a+c.act,0);
-  const sob=presupuesto.filter(c=>c.act>c.pres).length;
+  const{cats,sinCat,tPres,tEjec}=presupuestoMes();
+  const sob=cats.filter(c=>c.ejec>c.pres).length;
   document.getElementById('pres-mets').innerHTML=`
-    <div class="met"><div class="ml">Presupuesto total</div><div class="mv">${cl(tP)}</div></div>
-    <div class="met"><div class="ml">Ejecutado</div><div class="mv ${tA>tP?'neg':''}">${cl(tA)}</div></div>
-    <div class="met"><div class="ml">Disponible</div><div class="mv ${tP-tA<0?'neg':'pos'}">${cl(tP-tA)}</div></div>
+    <div class="met"><div class="ml">Presupuesto total</div><div class="mv">${cl(tPres)}</div></div>
+    <div class="met"><div class="ml">Ejecutado ${MESES[mesActual.getMonth()].toLowerCase()}</div><div class="mv ${tEjec>tPres?'neg':''}">${cl(tEjec)}</div></div>
+    <div class="met"><div class="ml">Disponible</div><div class="mv ${tPres-tEjec<0?'neg':'pos'}">${cl(tPres-tEjec)}</div></div>
     <div class="met"><div class="ml">Sobre presupuesto</div><div class="mv ${sob>0?'neg':''}">${sob}</div></div>`;
-  document.getElementById('pres-cats').innerHTML=presupuesto.map(c=>{
-    const pct=Math.min(100,Math.round(c.act/c.pres*100));
-    return`<div class="pr"><div class="prh"><span>${c.nom}</span><span>${cl(c.act)} / ${cl(c.pres)} (${pct}%)</span></div>
-    <div class="pb"><div class="pf" style="width:${pct}%;background:${c.act>c.pres?'var(--red)':c.color}"></div></div></div>`;
-  }).join('');
+  document.getElementById('pres-cats').innerHTML=cats.map(c=>{
+    const pct=c.pres>0?Math.round(c.ejec/c.pres*100):0;
+    return`<div class="pr"><div class="prh"><span>${c.nom}</span><span>${cl(c.ejec)} / ${cl(c.pres)} (${pct}%)</span></div>
+    <div class="pb"><div class="pf" style="width:${Math.min(100,pct)}%;background:${c.ejec>c.pres?'var(--red)':c.color}"></div></div>
+    ${c.items.length?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${c.items.join(', ')}</div>`:''}</div>`;
+  }).join('')+(sinCat>0?`<div style="font-size:11px;color:var(--text2)">Sin categoría asignada: ${cl(sinCat)}</div>`:'');
 }
 function gPres(){
   const nom=document.getElementById('p-nom').value;
   const pres=parseInt(document.getElementById('p-pres').value)||0;
-  const act=parseInt(document.getElementById('p-act').value)||0;
   if(!nom||!pres)return;
   let ex=presupuesto.find(p=>(p.nom||'').toLowerCase()===nom.toLowerCase());
-  if(ex){ex.pres=pres;ex.act=act;dbSet('presupuesto',ex);}
-  else{const it={id:nxt(),nom,pres,act,color:'#6A6A65'};presupuesto.push(it);dbSet('presupuesto',it);}
-  renderPresupuesto();if(CHS.pres){CHS.pres.destroy();CHS.pres=null;}setTimeout(()=>initChart('presupuesto'),50);cerrarM('mPres');
+  if(ex){ex.pres=pres;dbSet('presupuesto',ex);}
+  else{const it={id:nxt(),nom,pres,act:0,color:'#6A6A65'};presupuesto.push(it);dbSet('presupuesto',it);}
+  renderPresupuesto();renderResumen();initChart('presupuesto');cerrarM('mPres');
+  ['p-nom','p-pres'].forEach(i=>document.getElementById(i).value='');
 }
 
 // ── RESUMEN ───────────────────────────────────────────────
@@ -1200,13 +1225,13 @@ function renderResumen(){
     <div class="met"><div class="ml">Airbnb neto</div><div class="mv pos">${cl(iD1+iD2-gD1-gD2)}</div><div class="ms">separado de personal</div></div>`;
   const pI=Math.round(tPerc/tI*100)||0;
   const pO=Math.round(tPag/tO*100)||0;
-  const tPres=presupuesto.reduce((a,c)=>a+c.pres,0);
-  const tAct=presupuesto.reduce((a,c)=>a+c.act,0);
-  const pPres=Math.round(tAct/tPres*100)||0;
+  const pm=presupuestoMes();
+  const pPres=pm.tPres>0?Math.round(pm.tEjec/pm.tPres*100):0;
   document.getElementById('r-estado').innerHTML=`
-    <div class="pr"><div class="prh"><span>Ingresos percibidos</span><span>${pI}% — ${cl(tPerc)} de ${cl(tI)}</span></div><div class="pb"><div class="pf" style="width:${pI}%;background:#1A8C68"></div></div></div>
-    <div class="pr"><div class="prh"><span>Obligaciones pagadas</span><span>${pO}% — ${cl(tPag)} de ${cl(tO)}</span></div><div class="pb"><div class="pf" style="width:${pO}%;background:#1A5FA8"></div></div></div>
-    <div class="pr"><div class="prh"><span>Presupuesto utilizado</span><span>${pPres}%</span></div><div class="pb"><div class="pf" style="width:${pPres}%;background:#A86A0A"></div></div></div>`;
+    <div class="pr"><div class="prh"><span>Ingresos percibidos</span><span>${pI}% — ${cl(tPerc)} de ${cl(tI)}</span></div><div class="pb"><div class="pf" style="width:${Math.min(100,pI)}%;background:#1A8C68"></div></div></div>
+    <div class="pr"><div class="prh"><span>Obligaciones pagadas</span><span>${pO}% — ${cl(tPag)} de ${cl(tO)}</span></div><div class="pb"><div class="pf" style="width:${Math.min(100,pO)}%;background:#1A5FA8"></div></div></div>
+    <div class="pr"><div class="prh"><span>Presupuesto utilizado</span><span>${pPres}% — ${cl(pm.tEjec)} de ${cl(pm.tPres)}</span></div><div class="pb"><div class="pf" style="width:${Math.min(100,pPres)}%;background:${pPres>100?'var(--red)':'#A86A0A'}"></div></div></div>`;
+  renderPresupuesto();refrescarGraficos();
 }
 
 // ── PROYECCIÓN ────────────────────────────────────────────
@@ -1311,58 +1336,68 @@ function gHito(){
 
 // ── GRÁFICOS ─────────────────────────────────────────────
 const CHS={};
-// Construye los 4 gráficos de un depto (num=1 → Depto 320 / rvD1,gsD1; num=2 → Vista Ñielol / rvD2,gsD2).
-// Se reconstruyen cada vez que se llama (no se cachean) porque dependen del mes seleccionado.
+const PALETA=['#1A5FA8','#1A8C68','#A86A0A','#5040B0','#C94E2A','#2A8BA8','#8B3A8B','#6A6A65'];
+// Crea (o recrea) un gráfico; si no hay datos muestra un mensaje en vez de un recuadro vacío
+function mkChart(key,canvasId,cfg,vacio){
+  if(CHS[key]){CHS[key].destroy();CHS[key]=null;}
+  const cv=document.getElementById(canvasId);if(!cv)return;
+  const wrap=cv.parentElement;
+  let msg=wrap.querySelector('.chart-empty');
+  if(vacio){
+    cv.style.display='none';
+    if(!msg){msg=document.createElement('div');msg.className='chart-empty';msg.style.cssText='color:var(--text3);font-size:12px;text-align:center;padding:2.5rem 0';wrap.appendChild(msg);}
+    msg.textContent=vacio;return;
+  }
+  cv.style.display='';if(msg)msg.remove();
+  CHS[key]=new Chart(cv,cfg);
+}
+const tickK=v=>'$'+(v/1e3).toFixed(0)+'k';
+const tickM=v=>'$'+(v/1e6).toFixed(1)+'M';
+function refrescarGraficos(){
+  const a=document.querySelector('.sec.active');
+  if(a)initChart(a.id.replace('sec-',''));
+}
+// Gráficos de un depto (1 = Depto 320, 2 = Vista Ñielol). Gastos = operacionales + obligaciones del depto pagadas/abonadas.
 function buildDeptoCharts(num){
   const rv=num===1?rvD1:rvD2;
   const gs=num===1?gsD1:gsD2;
+  const amb=num===1?'depto320':'nielol';
   const meses6=ultimosMeses(6);
   const lbls6=meses6.map(lblMes);
   const ingM=meses6.map(d=>rv.filter(r=>fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.monto,0));
-  const gsM=meses6.map(d=>gs.filter(g=>fechaCoincideConMes(g.fecha,d)).reduce((a,g)=>a+g.monto,0));
+  const gsM=meses6.map(d=>gs.filter(g=>fechaCoincideConMes(g.fecha,d)).reduce((a,g)=>a+g.monto,0)
+    +obligaciones.filter(o=>o.ambito===amb&&fechaCoincideConMes(o.fecha,d)).reduce((a,o)=>a+pagadoOb(o),0));
   const netoM=meses6.map((_,i)=>ingM[i]-gsM[i]);
   const nochesM=meses6.map(d=>rv.filter(r=>fechaCoincideConMes(r.entrada,d)).reduce((a,r)=>a+r.noches,0));
-  const ocupM=meses6.map((d,i)=>Math.round(nochesM[i]/diasEnMes(d)*100));
+  const ocupM=meses6.map((d,i)=>Math.min(100,Math.round(nochesM[i]/diasEnMes(d)*100)));
   const adrM=meses6.map((_,i)=>nochesM[i]>0?Math.round(ingM[i]/nochesM[i]):0);
+  const x={ticks:{autoSkip:false}};
 
-  const kCombo='d'+num,kOc='d'+num+'oc',kAdr='d'+num+'adr',kGc='d'+num+'gc';
-  const idCombo='cD'+num,idOc='cD'+num+'Oc',idAdr='cD'+num+'Adr',idGc='cD'+num+'Gc';
-
-  if(CHS[kCombo])CHS[kCombo].destroy();
-  CHS[kCombo]=new Chart(document.getElementById(idCombo),{type:'bar',
-    data:{labels:lbls6,
-      datasets:[{label:'Ingresos',data:ingM,backgroundColor:'rgba(26,140,104,.6)',order:2},
-                {label:'Gastos',data:gsM,backgroundColor:'rgba(201,78,42,.6)',order:2},
-                {label:'Neto',data:netoM,type:'line',borderColor:'#1A5FA8',backgroundColor:'transparent',borderWidth:2,tension:.3,order:1}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
-
-  if(CHS[kOc])CHS[kOc].destroy();
-  CHS[kOc]=new Chart(document.getElementById(idOc),{type:'line',
+  mkChart('d'+num,'cD'+num,{type:'bar',
+    data:{labels:lbls6,datasets:[{label:'Ingresos',data:ingM,backgroundColor:'rgba(26,140,104,.6)',order:2},
+      {label:'Gastos',data:gsM,backgroundColor:'rgba(201,78,42,.6)',order:2},
+      {label:'Neto',data:netoM,type:'line',borderColor:'#1A5FA8',backgroundColor:'transparent',borderWidth:2,tension:.3,order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+cl(c.raw)}}},scales:{y:{ticks:{callback:tickK}},x}}});
+  mkChart('d'+num+'oc','cD'+num+'Oc',{type:'line',
     data:{labels:lbls6,datasets:[{label:'Ocupación %',data:ocupM,borderColor:'#1A5FA8',backgroundColor:'rgba(26,95,168,.12)',fill:true,tension:.35,borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false}}}}});
-
-  if(CHS[kAdr])CHS[kAdr].destroy();
-  CHS[kAdr]=new Chart(document.getElementById(idAdr),{type:'line',
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}},x}}});
+  mkChart('d'+num+'adr','cD'+num+'Adr',{type:'line',
     data:{labels:lbls6,datasets:[{label:'ADR',data:adrM,borderColor:'#A86A0A',backgroundColor:'rgba(168,106,10,.12)',fill:true,tension:.35,borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>cl(c.raw)+' / noche'}}},scales:{y:{ticks:{callback:tickK}},x}}});
 
-  const gastosMesActual=gs.filter(g=>fechaEnMes(g.fecha));
   const porCat={};
-  gastosMesActual.forEach(g=>{const c=g.cat||'Otro';porCat[c]=(porCat[c]||0)+g.monto;});
-  const obAmbito=num===1?'depto320':'nielol';
-  obligaciones.filter(o=>o.ambito===obAmbito&&fechaEnMes(o.fecha)).forEach(o=>{
-    const m=o.pagado?o.monto:(o.abonado||0);
-    if(m>0){const c=o.cat||'Otro';porCat[c]=(porCat[c]||0)+m;}
+  gs.filter(g=>fechaEnMes(g.fecha)).forEach(g=>{const c=g.cat||'Otro';porCat[c]=(porCat[c]||0)+g.monto;});
+  obligaciones.filter(o=>o.ambito===amb&&fechaEnMes(o.fecha)).forEach(o=>{
+    const m=pagadoOb(o);if(m>0){const c=o.cat||'Otro';porCat[c]=(porCat[c]||0)+m;}
   });
   const entries=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
-  if(CHS[kGc]){CHS[kGc].destroy();CHS[kGc]=null;}
-  if(entries.length){
-    CHS[kGc]=new Chart(document.getElementById(idGc),{type:'doughnut',
-      data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:entries.map((_,i)=>CATCOLORS[i%CATCOLORS.length]),borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
-  }
+  mkChart('d'+num+'gc','cD'+num+'Gc',{type:'doughnut',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:entries.map((_,i)=>CATCOLORS[i%CATCOLORS.length]),borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>c.label+': '+cl(c.raw)}}}}},
+    entries.length?null:'Sin gastos registrados este mes');
 }
 function initChart(sec){
+  if(typeof Chart==='undefined'){setTimeout(()=>initChart(sec),300);return;}
   if(sec==='resumen'){
     const suF=sueldos.filter(x=>fechaEnMes(x.fecha));
     const honF=honorarios.filter(x=>fechaEnMes(x.fecha));
@@ -1370,62 +1405,47 @@ function initChart(sec){
     const su=suF.reduce((a,x)=>a+x.monto,0);
     const hon=honF.reduce((a,x)=>a+x.monto,0);
     const ot=otF.reduce((a,x)=>a+x.monto,0);
-    if(CHS.fuentes){CHS.fuentes.destroy();CHS.fuentes=null;}
-    const fWrap=document.getElementById('cFuentes').parentElement;
-    let fEmpty=fWrap.querySelector('.chart-empty');
-    if(su+hon+ot===0){
-      document.getElementById('cFuentes').style.display='none';
-      if(!fEmpty){fEmpty=document.createElement('div');fEmpty.className='chart-empty';fEmpty.style.cssText='color:var(--text3);font-size:12px;text-align:center;padding:2.5rem 0';fEmpty.textContent='Sin ingresos registrados este mes';fWrap.appendChild(fEmpty);}
-    }else{
-      document.getElementById('cFuentes').style.display='';
-      if(fEmpty)fEmpty.remove();
-      CHS.fuentes=new Chart(document.getElementById('cFuentes'),{type:'doughnut',
-        data:{labels:['Sueldo','Honorarios','Otros'],datasets:[{data:[su,hon,ot],backgroundColor:['#1A5FA8','#A86A0A','#5040B0'],borderWidth:2}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>c.label+': '+cl(c.raw)+' ('+Math.round(c.raw/(su+hon+ot)*100)+'%)'}}}}});
-    }
+    mkChart('fuentes','cFuentes',{type:'doughnut',
+      data:{labels:['Sueldo','Honorarios','Otros'],datasets:[{data:[su,hon,ot],backgroundColor:['#1A5FA8','#A86A0A','#5040B0'],borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>c.label+': '+cl(c.raw)+' ('+Math.round(c.raw/(su+hon+ot)*100)+'%)'}}}}},
+      su+hon+ot===0?'Sin ingresos registrados este mes':null);
     const meses6=ultimosMeses(6);
-    const lbls6=meses6.map(lblMes);
-    const ingM6=meses6.map(d=>sueldos.filter(x=>fechaCoincideConMes(x.fecha,d)).reduce((a,x)=>a+x.monto,0)+honorarios.filter(x=>fechaCoincideConMes(x.fecha,d)).reduce((a,x)=>a+x.monto,0)+otrosIng.filter(x=>fechaCoincideConMes(x.fecha,d)).reduce((a,x)=>a+x.monto,0));
+    const ingM6=meses6.map(d=>[...sueldos,...honorarios,...otrosIng].filter(x=>fechaCoincideConMes(x.fecha,d)).reduce((a,x)=>a+x.monto,0));
     const oblM6=meses6.map(d=>obligaciones.filter(o=>o.ambito==='personal'&&fechaCoincideConMes(o.fecha,d)).reduce((a,o)=>a+o.monto,0));
-    if(CHS.evo)CHS.evo.destroy();
-    CHS.evo=new Chart(document.getElementById('cEvo'),{type:'bar',
-      data:{labels:lbls6,
-        datasets:[{label:'Ingresos',data:ingM6,backgroundColor:'#1A8C68'},
-                  {label:'Obligaciones',data:oblM6,backgroundColor:'#C94E2A'}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},scales:{y:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},x:{ticks:{autoSkip:false}}}}});
+    mkChart('evo','cEvo',{type:'bar',
+      data:{labels:meses6.map(lblMes),datasets:[{label:'Ingresos',data:ingM6,backgroundColor:'#1A8C68'},{label:'Obligaciones',data:oblM6,backgroundColor:'#C94E2A'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+cl(c.raw)}}},scales:{y:{ticks:{callback:tickK}},x:{ticks:{autoSkip:false}}}}});
   }
-  if(sec==='depto320'){buildDeptoCharts(1);}
-  if(sec==='nielol'){buildDeptoCharts(2);}
+  if(sec==='depto320')buildDeptoCharts(1);
+  if(sec==='nielol')buildDeptoCharts(2);
   if(sec==='ahorro'){
-    if(!CHS.ah){
-      const base=ahorros.reduce((a,x)=>a+x.actual,0);
-      CHS.ah=new Chart(document.getElementById('cAh'),{type:'line',
-        data:{labels:getMeses(12).map(m=>m.label),
-          datasets:[{label:'Acumulado',data:getMeses(12).map((_,i)=>base+82000*i),borderColor:'#1A8C68',backgroundColor:'rgba(26,140,104,.1)',fill:true,tension:.4,borderWidth:2},
-                    {label:'Mensual',data:getMeses(12).map(()=>82000),borderColor:'#1A5FA8',borderDash:[4,3],tension:.4,borderWidth:2}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e6).toFixed(1)+'M'}}}}});
-    }
-    if(!CHS.port&&ahorros.length>0){
-      CHS.port=new Chart(document.getElementById('cPort'),{type:'doughnut',
-        data:{labels:ahorros.map(a=>a.nom),datasets:[{data:ahorros.map(a=>a.actual),backgroundColor:['#1A5FA8','#1A8C68','#A86A0A','#5040B0','#C94E2A'],borderWidth:2}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
-    }
+    // Proyección: parte del valor actual del portafolio y suma el ahorro estimado de cada mes (15% del flujo)
+    const rows=calcProj().slice(0,12);
+    mkChart('ah','cAh',{type:'line',
+      data:{labels:rows.map(r=>r.mes),datasets:[
+        {label:'Acumulado',data:rows.map(r=>r.acum),borderColor:'#1A8C68',backgroundColor:'rgba(26,140,104,.1)',fill:true,tension:.4,borderWidth:2},
+        {label:'Ahorro del mes',data:rows.map(r=>r.ahorro),borderColor:'#1A5FA8',borderDash:[4,3],tension:.4,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+cl(c.raw)}}},scales:{y:{ticks:{callback:tickM}}}}});
+    mkChart('port','cPort',{type:'doughnut',
+      data:{labels:ahorros.map(a=>a.nom),datasets:[{data:ahorros.map(a=>a.actual),backgroundColor:ahorros.map((_,i)=>PALETA[i%PALETA.length]),borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>c.label+': '+cl(c.raw)}}}}},
+      ahorros.length?null:'Agrega instrumentos para ver el portafolio');
   }
-  if(sec==='presupuesto'&&!CHS.pres){
-    CHS.pres=new Chart(document.getElementById('cPres'),{type:'bar',
-      data:{labels:presupuesto.map(c=>c.nom),
-        datasets:[{label:'Presupuestado',data:presupuesto.map(c=>c.pres),backgroundColor:'rgba(26,95,168,.3)',borderColor:'#1A5FA8',borderWidth:1},
-                  {label:'Ejecutado',data:presupuesto.map(c=>c.act),backgroundColor:presupuesto.map(c=>c.act>c.pres?'rgba(201,78,42,.7)':'rgba(26,140,104,.7)')}]},
-      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>'$'+(v/1e3).toFixed(0)+'k'}},y:{ticks:{autoSkip:false,font:{size:11}}}}}});
+  if(sec==='presupuesto'){
+    const{cats}=presupuestoMes();
+    mkChart('pres','cPres',{type:'bar',
+      data:{labels:cats.map(c=>c.nom),datasets:[
+        {label:'Presupuestado',data:cats.map(c=>c.pres),backgroundColor:'rgba(26,95,168,.3)',borderColor:'#1A5FA8',borderWidth:1},
+        {label:'Ejecutado',data:cats.map(c=>c.ejec),backgroundColor:cats.map(c=>c.ejec>c.pres?'rgba(201,78,42,.7)':'rgba(26,140,104,.7)')}]},
+      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+cl(c.raw)}}},scales:{x:{ticks:{callback:tickK}},y:{ticks:{autoSkip:false,font:{size:11}}}}}});
   }
-  if(sec==='proyeccion'&&!CHS.proj){
+  if(sec==='proyeccion'){
     const rows=renderProyeccion();
-    CHS.proj=new Chart(document.getElementById('cProj'),{type:'bar',
-      data:{labels:rows.map(r=>r.mes),
-        datasets:[{label:'Ingresos',data:rows.map(r=>r.ing),backgroundColor:'rgba(26,140,104,.5)',order:2},
-                  {label:'Egresos',data:rows.map(r=>r.eg),backgroundColor:'rgba(201,78,42,.5)',order:2},
-                  {label:'Neto',data:rows.map(r=>r.flujo),type:'line',borderColor:'#1A5FA8',backgroundColor:'transparent',borderWidth:2,tension:.3,order:1}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+(v/1e6).toFixed(1)+'M'}},x:{ticks:{autoSkip:true,maxTicksLimit:12}}}}});
+    mkChart('proj','cProj',{type:'bar',
+      data:{labels:rows.map(r=>r.mes),datasets:[{label:'Ingresos',data:rows.map(r=>r.ing),backgroundColor:'rgba(26,140,104,.5)',order:2},
+        {label:'Egresos',data:rows.map(r=>r.eg),backgroundColor:'rgba(201,78,42,.5)',order:2},
+        {label:'Neto',data:rows.map(r=>r.flujo),type:'line',borderColor:'#1A5FA8',backgroundColor:'transparent',borderWidth:2,tension:.3,order:1}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+cl(c.raw)}}},scales:{y:{ticks:{callback:tickM}},x:{ticks:{autoSkip:true,maxTicksLimit:12}}}}});
   }
 }
 
