@@ -197,7 +197,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="sec" id="sec-obligaciones">
   <div class="shdr">
     <span class="stitle">Obligaciones</span>
-    <button class="abtn" onclick="abrirM('mOb')">+ Agregar</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="abtn" onclick="abrirCopiarOb()">⟳ Copiar del mes anterior</button><button class="abtn" onclick="abrirM('mOb')">+ Agregar</button></div>
   </div>
   <div class="mets" id="ob-mets"></div>
   <div class="tabs" id="ob-tabs">
@@ -414,6 +414,12 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   <div style="font-size:11px;color:var(--text2);margin-bottom:.4rem">Desmarca los que no se repiten este mes y ajusta el monto si cambió.</div>
   <div id="cp-lista"></div>
   <div class="mact"><button class="btc" onclick="cerrarM('mCopiar')">Cancelar</button><button class="btp" onclick="gCopiarMes()">Copiar seleccionados</button></div>
+</div></div>
+
+<div class="overlay" id="mCopiarOb"><div class="modal" style="width:560px"><h3 id="cpo-title">Copiar obligaciones</h3>
+  <div style="font-size:11px;color:var(--text2);margin-bottom:.4rem">Desmarca las que no se repiten este mes y ajusta el monto si cambió. Las cuotas restantes bajan en 1 automáticamente.</div>
+  <div id="cpo-lista"></div>
+  <div class="mact"><button class="btc" onclick="cerrarM('mCopiarOb')">Cancelar</button><button class="btp" onclick="gCopiarOb()">Copiar seleccionadas</button></div>
 </div></div>
 
 <div id="toast"></div>
@@ -925,6 +931,53 @@ function gOb(){
   ['o-desc','o-monto','o-fecha'].forEach(i=>document.getElementById(i).value='');
 }
 
+// ── COPIAR OBLIGACIONES DEL MES ANTERIOR ──────────────────
+// Mensual y Única vez se toman del mes anterior; Bimestral de hace dos meses.
+// Las que tenían 1 cuota restante no se copian (ya se pagó la última).
+let cpoItems=[];
+function abrirCopiarOb(){
+  const prev=new Date(mesActual.getFullYear(),mesActual.getMonth()-1,1);
+  const prev2=new Date(mesActual.getFullYear(),mesActual.getMonth()-2,1);
+  const key=o=>(o.nombre||o.desc||'').trim().toLowerCase()+'|'+(o.ambito||'');
+  const yaEsta=o=>obligaciones.some(y=>fechaCoincideConMes(y.fecha,mesActual)&&key(y)===key(o));
+  const origen=o=>o.rec==='Bimestral'?fechaCoincideConMes(o.fecha,prev2):fechaCoincideConMes(o.fecha,prev);
+  cpoItems=obligaciones.filter(o=>origen(o)&&!yaEsta(o)&&o.cuotas!==1)
+    .map(o=>({src:o,sel:o.rec!=='Única vez',monto:o.monto}));
+  const terminadas=obligaciones.filter(o=>origen(o)&&!yaEsta(o)&&o.cuotas===1).length;
+  if(!cpoItems.length){toast(terminadas?'Solo había obligaciones en su última cuota; no hay nada que copiar':'No hay obligaciones nuevas para copiar desde '+MESES[prev.getMonth()]);return;}
+  document.getElementById('cpo-title').textContent='Copiar obligaciones a '+MESES[mesActual.getMonth()];
+  const grupos=[['personal','Personal'],['depto320','Depto 320'],['nielol','Vista Ñielol']];
+  let html='';
+  grupos.forEach(([amb,nom])=>{
+    const its=cpoItems.map((c,i)=>({c,i})).filter(x=>(x.c.src.ambito||'personal')===amb);
+    if(!its.length)return;
+    html+=`<div class="fl" style="margin:10px 0 4px">${nom}</div>`+its.map(({c,i})=>{
+      const o=c.src;
+      const cuo=o.cuotas>0?`<span style="color:var(--text3);font-size:10px;white-space:nowrap">quedan ${o.cuotas-1}</span>`:'';
+      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+        <input type="checkbox" style="width:auto" ${c.sel?'checked':''} onchange="cpoItems[${i}].sel=this.checked">
+        <span style="flex:1">${o.nombre||o.desc||''} <span class="bdg ba" style="font-size:9px">${o.rec||''}</span></span>
+        ${cuo}
+        <span style="color:var(--text3);font-size:11px;white-space:nowrap">día ${moverFecha(o.fecha).slice(8)}</span>
+        <input type="number" value="${c.monto}" style="width:110px" onchange="cpoItems[${i}].monto=parseInt(this.value)||0">
+      </div>`;
+    }).join('');
+  });
+  if(terminadas)html+=`<div style="font-size:11px;color:var(--green);margin-top:8px">✓ ${terminadas} obligación(es) terminaron el mes pasado y no se copian.</div>`;
+  document.getElementById('cpo-lista').innerHTML=html;
+  abrirM('mCopiarOb');
+}
+function gCopiarOb(){
+  let n=0;
+  cpoItems.filter(c=>c.sel&&c.monto>0).forEach(c=>{
+    const o=c.src;
+    const it={id:nxt(),nombre:o.nombre||o.desc||'',cat:o.cat||'Otro',monto:c.monto,fecha:moverFecha(o.fecha),pagado:false,
+      rec:o.rec||'Mensual',ambito:o.ambito||'personal',cuotas:o.cuotas>0?o.cuotas-1:0,abonado:0,abonos:[]};
+    obligaciones.push(it);dbSet('obligaciones',it);n++;
+  });
+  cerrarM('mCopiarOb');renderObligaciones();renderDeptos();renderResumen();toast('✓ '+n+' obligaciones copiadas');
+}
+
 // ── DEPTOS ───────────────────────────────────────────────
 function renderOblProgreso(ambito,elId){
   const obs=obligaciones.filter(o=>o.ambito===ambito&&fechaEnMes(o.fecha));
@@ -1168,7 +1221,7 @@ function showPT(tab,btn){
 }
 function getMeses(n){
   const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const base=new Date(2026,4,1);
+  const hoy=new Date(),base=new Date(hoy.getFullYear(),hoy.getMonth(),1);
   return Array.from({length:n},(_,i)=>{const d=new Date(base.getFullYear(),base.getMonth()+i,1);return{label:ms[d.getMonth()]+' '+String(d.getFullYear()).slice(2),date:d};});
 }
 function calcProj(){
@@ -1187,7 +1240,7 @@ function calcProj(){
     const flujo=tI-eg;
     const ahorro=Math.max(0,flujo*0.15);
     acum+=ahorro;
-    const term=obligaciones.filter(o=>o.cuotas>0&&o.cuotas===i);
+    const term=obligaciones.filter(o=>enRef(o)&&o.ambito==='personal'&&o.cuotas>0&&o.cuotas===i);
     return{mes:m.label,ing:tI,eg,flujo,ahorro,acum,term};
   });
 }
@@ -1197,7 +1250,7 @@ function renderProyeccion(){
   document.getElementById('proj-mets').innerHTML=`
     <div class="met"><div class="ml">Flujo prom. mensual</div><div class="mv pos">${cl(avg)}</div></div>
     <div class="met"><div class="ml">Ahorro anual est.</div><div class="mv pos">${cl(avg*0.15*12)}</div></div>
-    <div class="met"><div class="ml">Deudas con plazo</div><div class="mv">${obligaciones.filter(o=>o.cuotas>0).length}</div></div>
+    <div class="met"><div class="ml">Deudas con plazo</div><div class="mv">${obligaciones.filter(o=>o.cuotas>0&&fechaCoincideConMes(o.fecha,new Date(new Date().getFullYear(),new Date().getMonth(),1))).length}</div></div>
     <div class="met"><div class="ml">Acumulado a 24m</div><div class="mv">${cl(rows[23].acum)}</div></div>`;
   document.getElementById('proj-cards').innerHTML=rows.map(r=>{
     const pct=r.ing>0?Math.min(100,Math.round(r.eg/r.ing*100)):0;
@@ -1230,8 +1283,8 @@ function renderHitos(){
   }).join('');
 }
 function renderDeudas(){
-  const base=new Date(2026,4,1);
-  const rows=obligaciones.filter(o=>o.cuotas>0).map(o=>{
+  const hoy=new Date(),base=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  const rows=obligaciones.filter(o=>o.cuotas>0&&fechaCoincideConMes(o.fecha,base)).map(o=>{
     const td=new Date(base.getFullYear(),base.getMonth()+o.cuotas,1);
     return{...o,td,termStr:td.toLocaleDateString('es-CL',{month:'long',year:'numeric'}),total:o.monto*o.cuotas};
   }).sort((a,b)=>a.td-b.td);
